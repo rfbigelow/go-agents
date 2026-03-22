@@ -27,9 +27,13 @@ final response with no tool-use requests.
 a user message).
 **Inputs:** User message, current conversation state.
 **Outputs:** Final assistant response (streamed), updated conversation state.
-**Rules:** Tool calls within a single response are executed before the next
-LLM turn. The loop must terminate (guard against infinite tool-call cycles).
-**Relates to:** S1.1 (Agent), S1.4 (Conversation State).
+**Rules:** All tool calls within a single LLM response are executed in parallel
+before the next LLM turn. The turn completes when all tool calls (including
+sub-agent invocations) finish. The loop must terminate (guard against infinite
+tool-call cycles). The conversation loop is sequential at the turn level — a new
+user message cannot be processed while a turn is in progress.
+**Relates to:** S1.1 (Agent), S1.4 (Conversation State), S2.5 (Tool Dispatch),
+S2.11 (Sub-Agent Composition).
 
 ### S2.3: Streaming Responses
 
@@ -66,24 +70,28 @@ The result is appended to the conversation as a tool result message.
 **Trigger:** LLM response containing a tool-use block.
 **Inputs:** Tool name and arguments from the LLM response.
 **Outputs:** Tool result appended to conversation state.
-**Rules:** Unknown tool names result in an error tool result sent back to
-the LLM (not a crash). Tool execution errors are reported to the LLM as
-error results so it can decide how to proceed.
+**Rules:** All tool calls from a single LLM response execute in parallel.
+Unknown tool names result in an error tool result sent back to the LLM (not a
+crash). Tool execution errors are reported to the LLM as error results so it
+can decide how to proceed.
 **Relates to:** S1.3 (Tool Registry), S2.2 (Conversation Loop).
 
 ## Conversation Management
 
 ### S2.6: Conversation State Management
 
-**Description:** The library maintains the full message history for an agent
-session. Messages are appended as the conversation progresses (user messages,
-assistant responses, tool results).
+**Description:** The library maintains the message history for an agent session.
+Messages are appended as the conversation progresses (user messages, assistant
+responses, tool results). The library enforces correct message ordering and
+tool-use protocol conventions.
 **Trigger:** Each turn in the conversation loop.
 **Inputs:** New messages generated during the conversation.
 **Outputs:** Updated conversation state available for the next LLM call.
-**Rules:** The consuming application does not directly mutate conversation
-state. The library provides the state management interface.
-**Relates to:** S1.4 (Conversation State).
+**Rules:** The library provides conversation state management with sensible
+defaults. The consuming application can control resource-significant aspects
+such as history bounds and compaction strategy (per E3.5) but does not need
+to manage message ordering or protocol compliance.
+**Relates to:** S1.4 (Conversation State), E3.5 (Consumer Resource Control).
 
 ## Resilience
 
@@ -126,3 +134,23 @@ steps within a workflow — e.g., validation, transformation, or routing
 that does not require LLM inference.
 **Trigger:** Agent configuration includes deterministic steps.
 **Relates to:** S2.2 (Conversation Loop).
+
+### S2.11: Sub-Agent Composition
+
+**Description:** A tool can create and run a sub-agent — a separate agentic
+loop with its own conversation state, tools, and response stream. The parent
+agent invokes a sub-agent as a tool call; the sub-agent runs to completion and
+returns its result. Multiple sub-agents can run in parallel (as part of parallel
+tool execution within a turn).
+**Trigger:** The LLM requests a tool call whose implementation creates and runs
+a sub-agent.
+**Inputs:** Tool arguments passed to the sub-agent tool, which uses them to
+configure and run the sub-agent.
+**Outputs:** Sub-agent result returned as a tool result to the parent agent.
+**Rules:** Sub-agents cannot spawn further sub-agents (maximum nesting depth
+of one). Each sub-agent has its own conversation state, independent of the
+parent's. Each sub-agent produces its own response stream, separate from the
+parent's stream and from other sub-agents' streams, so that concurrent output
+can be rendered independently.
+**Relates to:** S2.2 (Conversation Loop), S2.3 (Streaming), S2.5 (Tool
+Dispatch), G5.4 (Composing Agents with Sub-Agents).

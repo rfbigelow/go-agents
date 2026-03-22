@@ -40,9 +40,10 @@ contract.
 sequence of user messages, assistant responses, and tool results that
 constitute the conversation context.
 **Interacts with:** Agent.
-**Key properties:** Library-managed, not consumer-managed. Must support
-future extension for features like context compaction (summarizing or
-truncating history to stay within token limits).
+**Key properties:** Library-provided, consumer-controllable. The library manages
+conversation state by default but the consumer can influence resource-significant
+decisions such as history bounds and compaction strategy (per E3.5). Must support
+features like sliding context windows and context compaction.
 
 ## Component Relationships
 

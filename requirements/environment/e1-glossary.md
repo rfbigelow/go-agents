@@ -54,12 +54,27 @@ A workflow pattern where the agent pauses execution to request input,
 approval, or correction from a human before continuing. Enables human
 oversight of autonomous agent behavior.
 
+### Memory Tool
+
+A tool that gives an agent access to persistent knowledge across conversations —
+e.g., facts learned in prior sessions, user preferences, or accumulated context.
+Not currently in scope; identified as a future capability that would enable
+agent reuse across conversations.
+
 ### Progressive Capability
 
 A design approach where an Agent starts with minimal functionality (simple
 completion) and capabilities are layered on incrementally (tool use, HITL,
 extended thinking, deterministic logic) rather than requiring all-or-nothing
 configuration.
+
+### Sub-Agent
+
+An agent that is started by another agent as part of its workflow. A sub-agent
+is a full agentic loop in its own right — with its own conversation state and
+potentially its own tools — but is initiated and managed by a parent agent.
+Sub-agent composition is a form of tool use from the parent's perspective, but
+represents an independent agentic workflow.
 
 ### Tool Dispatch
 

@@ -28,6 +28,17 @@ operating system, or deployment environment.
 backends, deployment configuration) are the responsibility of the consuming
 application, not the library.
 
+### E3.5: Consumer Resource Control
+
+**Source:** Go library conventions.
+**Description:** The library must not take exclusive ownership of resources in
+ways that prevent the consuming application from controlling their lifecycle.
+Consumers should be able to influence memory-significant decisions such as
+conversation history bounds and compaction strategy.
+**Impact:** Features that manage long-lived resources (e.g., conversation state)
+must provide mechanisms for the consumer to control resource usage. The library
+provides sensible defaults but does not impose them.
+
 ## Legal
 
 ### E3.4: MIT License Compatibility
