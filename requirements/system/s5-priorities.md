@@ -14,7 +14,7 @@
 ### Must
 
 These form the core library — an agent that can hold conversations, use tools,
-and handle errors. Corresponds to milestones M1–M2 (P3).
+and handle errors.
 
 - **S2.1** — Agent creation and configuration
 - **S2.2** — Conversation loop execution
@@ -27,8 +27,7 @@ and handle errors. Corresponds to milestones M1–M2 (P3).
 ### Should
 
 Progressive capabilities that make the library significantly more useful but
-are not required for a viable first release. Corresponds to milestones M3–M5
-(P3).
+are not required for a viable first release.
 
 - **S2.8** — Human-in-the-loop
 - **S2.9** — Extended thinking

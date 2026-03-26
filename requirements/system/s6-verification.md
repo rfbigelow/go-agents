@@ -7,8 +7,8 @@ The library is verified at two levels:
 - **Unit tests** with mocked API responses verify individual requirements.
   The Anthropic API (E2.1) is mocked to provide deterministic, repeatable
   test scenarios without network dependencies or API costs.
-- **Example application** (P3, M6) serves as acceptance test, verifying that
-  the library's capabilities work together in a realistic agent application
+- **Example application** serves as acceptance test, verifying that the
+  library's capabilities work together in a realistic agent application
   against the live Anthropic API.
 
 ## Unit Test Criteria
@@ -131,8 +131,8 @@ and the Anthropic Go SDK. Any additional dependency has explicit justification.
 
 **Verifies:** All Must-priority requirements (S5), E6.1 (application controls
 execution flow).
-**Method:** Demonstration — the example application (P3, M6) runs against the
-live Anthropic API.
+**Method:** Demonstration — an example application runs against the live
+Anthropic API.
 **Pass condition:** The example application can hold a multi-turn conversation
 with tool use, demonstrating that the library's core capabilities work together
 in a realistic setting. The application controls the interaction loop — obtaining
