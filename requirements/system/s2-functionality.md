@@ -118,7 +118,18 @@ immediately.
 from a human before continuing. This enables workflows where certain
 decisions require human judgment.
 **Trigger:** Agent-defined condition or tool that requires human input.
-**Relates to:** S2.2 (Conversation Loop).
+**Relates to:** S2.2 (Conversation Loop), E6.1 (Application Controls Execution
+Flow).
+
+<!-- TODO: Define the HITL execution model. Current thinking: the Agent's run
+     method returns a response that indicates its type — either a final answer
+     to the user's request or a HITL request for further user input. This keeps
+     the execution model simple and leaves the application in control of the
+     interaction flow (consistent with E6.1). Need to determine:
+     - How the response type is represented (tagged union / enum + payload?)
+     - How the application resumes the conversation after providing HITL input
+     - Whether HITL responses carry structured metadata (e.g., what kind of
+       input is needed) or are free-form text from the LLM -->
 
 ### S2.9: Extended Thinking
 

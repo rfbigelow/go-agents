@@ -1,33 +1,31 @@
 # Project Overview
 
-<!-- Layer 1: Readable summary of the Project book. This file should give
-     a human or agent a solid understanding of HOW the project is organized
-     and executed.
-
-     The Project book may reference all other books — it ties everything
-     together from a planning and execution perspective.
-
-     Target length: half a page to one page. -->
-
 ## Team and Roles
 
-<!-- Who is working on this and what are they responsible for?
-     Reference p1 for full details. -->
+A single developer (P1.1) fills all project roles — requirements, design,
+implementation, testing, and release. An AI assistant participates in
+requirements elicitation and code development. See P1 for details.
 
 ## Approach
 
-<!-- What development methodology is being followed? What are the key
-     technical choices? Reference p2 and p7 for full details. -->
+All technical choices are made by the developer (P2 — no imposed choices).
+Technology is Go 1.25+ with the Anthropic Go SDK (P5). Requirements follow the
+PEGS Standard Plan with AI-assisted elicitation and review (P7). Development is
+iterative with no fixed timeline (P3).
 
 ## Timeline
 
-<!-- What is the rough schedule? What are the major milestones?
-     Reference p3 for full details. -->
+Six milestones ordered by dependency: Basic Conversation (M1) → Tool Use (M2)
+→ HITL (M3), Extended Thinking (M4), Deterministic Logic (M5) → Example
+Application (M6, started at M2). No hard deadlines — pace is driven by
+available time and learning goals. See P3 for details.
 
 ## Key Risks
 
-<!-- What are the most significant risks to the project?
-     Reference p6 for full details. -->
+The highest-impact risks are **API design lock-in** (P6.2) — getting the public
+API wrong early — and **no external stakeholders** (P6.5) — no feedback loop
+beyond the developer's own perspective. The example application (M6) mitigates
+both by validating the API through real use. See P6 for the full risk register.
 
 ## Chapter Index
 

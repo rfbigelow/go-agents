@@ -1,44 +1,155 @@
 # S6: Verification and Acceptance Criteria
 
-<!-- How to verify that the system meets its requirements. This chapter
-     defines what "done" looks like for each requirement or group of
-     requirements.
+## Verification Strategy
 
-     Verification criteria should be specific enough that a human tester
-     or automated test can unambiguously determine pass/fail.
+The library is verified at two levels:
 
-     Each criterion should have a unique identifier (S6.1, S6.2, ...)
-     and reference the requirement(s) it verifies. -->
+- **Unit tests** with mocked API responses verify individual requirements.
+  The Anthropic API (E2.1) is mocked to provide deterministic, repeatable
+  test scenarios without network dependencies or API costs.
+- **Example application** (P3, M6) serves as acceptance test, verifying that
+  the library's capabilities work together in a realistic agent application
+  against the live Anthropic API.
 
-## Acceptance Criteria
+## Unit Test Criteria
 
-### S6.1: [Criterion Name]
+### S6.1: Simple Conversation
 
-**Verifies:** <!-- Which requirements? e.g., S2.1, S2.2 -->
-**Method:** <!-- How is this verified? -->
+**Verifies:** S2.1, S2.2, S2.3, S2.6
+**Method:** Test with mocked API responses.
+**Pass condition:** An Agent created with a system prompt can send a message,
+stream the mocked response, and maintain conversation history across multiple
+turns. Conversation state contains the correct message sequence after each turn.
 
-<!-- Use one or more of:
-     - Test: specific input → expected output
-     - Demonstration: show the system performing the function
-     - Inspection: review of artifacts (code, config, documentation)
-     - Analysis: logical argument or calculation showing compliance -->
+### S6.2: Tool Registration and Dispatch
 
-**Pass condition:** <!-- What specific, observable outcome constitutes passing? -->
+**Verifies:** S2.4, S2.5
+**Method:** Test with mocked API responses containing tool-use requests.
+**Pass condition:** Registered tools are included in API requests. When the
+mocked API returns tool-use blocks, the Agent dispatches to the correct tool
+implementations and appends results to conversation state. Multiple tool calls
+in a single response execute in parallel.
 
-### S6.2: [Criterion Name]
+### S6.3: Conversation Loop Termination
 
-<!-- Continue for each verification criterion. -->
+**Verifies:** S2.2
+**Method:** Test with mocked API responses that chain multiple tool-call turns
+before a final response.
+**Pass condition:** The Agent loops through tool-call/result turns and returns
+when the mocked API produces a response with no tool-use requests. The final
+response is returned to the caller.
+
+### S6.4: Maximum Iteration Guard
+
+**Verifies:** S2.2 (loop termination), S4.2 (max iterations reached)
+**Method:** Test with mocked API responses that always request tool calls.
+**Pass condition:** The Agent stops after the configured maximum iteration count
+and returns an error to the caller. Conversation state is preserved up to the
+last completed turn.
+
+### S6.5: Unknown Tool Handling
+
+**Verifies:** S2.5, S4.2 (unknown tool)
+**Method:** Test with a mocked API response requesting a tool not in the registry.
+**Pass condition:** The Agent sends an error tool result back to the LLM. The
+conversation loop continues (no crash, no propagation to the consumer).
+
+### S6.6: Tool Error Handling
+
+**Verifies:** S2.5, S4.2 (tool returns error)
+**Method:** Test with a tool implementation that returns an error.
+**Pass condition:** The error is converted to an error tool result sent back to
+the LLM. The conversation loop continues.
+
+### S6.7: Tool Panic Recovery
+
+**Verifies:** S2.5, S4.2 (tool panics)
+**Method:** Test with a tool implementation that panics.
+**Pass condition:** The Agent recovers the panic, converts it to an error tool
+result, and continues the conversation loop. Other concurrent tool calls are
+unaffected.
+
+### S6.8: API Error Propagation
+
+**Verifies:** S2.2, S2.7, S4.1 (API error)
+**Method:** Test with mocked API returning non-transient errors.
+**Pass condition:** The error is returned to the consumer. Conversation state
+does not include the message that prompted the error. Prior conversation history
+is preserved.
+
+### S6.9: Transient Error Retry
+
+**Verifies:** S2.7
+**Method:** Test with mocked API returning transient errors followed by success
+(or exhausting retries).
+**Pass condition:** Transient errors are retried per the SDK's retry behavior.
+If retries succeed, the conversation continues normally. If retries are exhausted,
+the error propagates to the consumer per S6.8.
+
+### S6.10: Sub-Agent Composition
+
+**Verifies:** S2.11, S4.3
+**Method:** Test with a tool that creates and runs a sub-agent using mocked API
+responses.
+**Pass condition:** The sub-agent runs its own conversation loop with its own
+conversation state. Its result is returned as a tool result to the parent agent.
+The parent's conversation loop continues.
+
+### S6.11: Sub-Agent Failure Isolation
+
+**Verifies:** S2.11, S4.3 (sub-agent error, sub-agent panic)
+**Method:** Test with sub-agents that return errors and sub-agents that panic.
+**Pass condition:** Failures are converted to error tool results for the parent.
+The parent's conversation loop continues.
+
+### S6.12: Sub-Agent Nesting Rejection
+
+**Verifies:** S2.11, S4.3 (nesting attempt), G6.3
+**Method:** Test with a sub-agent that attempts to spawn another sub-agent.
+**Pass condition:** The nested spawn is rejected with an error. The sub-agent
+receives an error tool result and can continue its own loop.
 
 ## Non-Functional Verification
 
-<!-- How are non-functional requirements (performance, security,
-     accessibility, etc.) verified? These often need different
-     approaches than functional tests.
+### S6.13: Platform Agnosticism
 
-     e.g., "Response time for S2.1 must be under 200ms at p95
-     under load of 1000 concurrent users, measured by [tool]." -->
+**Verifies:** E3.3
+**Method:** Inspection.
+**Pass condition:** The library has no build tags, import paths, or runtime
+checks specific to any OS, cloud platform, or deployment environment.
+
+### S6.14: Minimal Dependencies
+
+**Verifies:** E3.2
+**Method:** Inspection of `go.mod`.
+**Pass condition:** Direct dependencies are limited to the Go standard library
+and the Anthropic Go SDK. Any additional dependency has explicit justification.
+
+## Acceptance Test (Example Application)
+
+### S6.15: Example Application
+
+**Verifies:** All Must-priority requirements (S5), E6.1 (application controls
+execution flow).
+**Method:** Demonstration — the example application (P3, M6) runs against the
+live Anthropic API.
+**Pass condition:** The example application can hold a multi-turn conversation
+with tool use, demonstrating that the library's core capabilities work together
+in a realistic setting. The application controls the interaction loop — obtaining
+user input, calling the Agent, and displaying responses.
 
 ## Verification Coverage
 
-<!-- A traceability check: is every requirement in s2 covered by at
-     least one verification criterion here? List any gaps. -->
+| Requirement | Verified by |
+|-------------|-------------|
+| S2.1 | S6.1, S6.15 |
+| S2.2 | S6.1, S6.3, S6.4, S6.8, S6.15 |
+| S2.3 | S6.1, S6.15 |
+| S2.4 | S6.2, S6.15 |
+| S2.5 | S6.2, S6.5, S6.6, S6.7, S6.15 |
+| S2.6 | S6.1, S6.15 |
+| S2.7 | S6.8, S6.9 |
+| S2.8 | <!-- TODO: Add when HITL execution model is defined --> |
+| S2.9 | <!-- TODO: Add when extended thinking is elaborated --> |
+| S2.10 | <!-- TODO: Add when deterministic logic is elaborated --> |
+| S2.11 | S6.10, S6.11, S6.12 |

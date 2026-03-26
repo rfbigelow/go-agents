@@ -1,18 +1,6 @@
 # S5: Priorities
 
-<!-- Relative importance and implementation ordering of requirements.
-
-     Not all requirements are equally important or equally urgent.
-     This chapter establishes which requirements are essential for the
-     first usable version, which can come later, and which are
-     nice-to-have.
-
-     This directly informs planning and helps agents decide what
-     to focus on when there are competing demands. -->
-
 ## Priority Levels
-
-<!-- Define the priority scheme used in this project. A simple scheme: -->
 
 | Priority | Meaning |
 |----------|---------|
@@ -25,25 +13,46 @@
 
 ### Must
 
-<!-- List requirement IDs and brief descriptions.
-     e.g., S2.1 (user authentication), S2.3 (data import) -->
+These form the core library — an agent that can hold conversations, use tools,
+and handle errors. Corresponds to milestones M1–M2 (P3).
+
+- **S2.1** — Agent creation and configuration
+- **S2.2** — Conversation loop execution
+- **S2.3** — Streaming responses
+- **S2.4** — Tool registration
+- **S2.5** — Tool dispatch and execution
+- **S2.6** — Conversation state management
+- **S2.7** — Transient error handling
 
 ### Should
 
-<!-- List requirement IDs and brief descriptions. -->
+Progressive capabilities that make the library significantly more useful but
+are not required for a viable first release. Corresponds to milestones M3–M5
+(P3).
+
+- **S2.8** — Human-in-the-loop
+- **S2.9** — Extended thinking
+- **S2.10** — Deterministic logic
+- **S2.11** — Sub-agent composition
 
 ### Could
 
-<!-- List requirement IDs and brief descriptions. -->
+No requirements currently at this level.
 
 ### Deferred
 
-<!-- List requirement IDs, descriptions, and reason for deferral. -->
+- **Memory tool** — Persistent knowledge across conversations (G5.5). Explicitly
+  out of initial scope per G6.4. Deferred until core capabilities are stable and
+  a real use case drives the design.
 
 ## Ordering Constraints
 
-<!-- Are there dependencies between requirements? Does A need to be
-     done before B, regardless of priority?
-
-     e.g., "S2.5 (reporting) depends on S2.3 (data import) being
-     complete, since there is nothing to report on without data." -->
+- S2.2 (conversation loop) depends on S2.1 (agent creation), S2.6
+  (conversation state), and S2.3 (streaming).
+- S2.5 (tool dispatch) depends on S2.4 (tool registration).
+- S2.2 depends on S2.5 for tool-using agents, but a no-tool agent can run
+  without it.
+- S2.8 (HITL), S2.9 (extended thinking), and S2.10 (deterministic logic) each
+  depend on S2.2 but are independent of each other.
+- S2.11 (sub-agent composition) depends on S2.2 and S2.5 (a sub-agent is
+  invoked as a tool).

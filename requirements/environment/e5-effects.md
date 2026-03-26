@@ -1,25 +1,21 @@
 # E5: Effects
 
-<!-- Changes that the system will cause in the environment.
+### E5.1: Consumer Applications Depend on go-agents
 
-     The environment mostly exists independently of our system, but
-     introducing the system may change some environmental properties.
-     These changes need to be documented because they can affect other
-     systems, processes, and stakeholders.
+**What changes:** Agent applications that adopt the library take on a dependency
+on go-agents and, transitively, on the Anthropic Go SDK (E2.2).
+**How it changes:** Instead of each application directly depending on and
+interacting with the Anthropic Go SDK, applications depend on go-agents, which
+mediates SDK access. The library's API stability and release cadence become a
+factor in consumer application maintenance.
+**Who is affected:** Library consumer (G7.2).
 
-     Each effect should have a unique identifier (E5.1, E5.2, ...).
+### E5.2: Conversation Loop Management Is Delegated
 
-     Examples: a new payroll system changes payroll processes; a new
-     API becomes a dependency for other teams; introducing automation
-     changes staff roles. -->
-
-### E5.1: [Effect]
-
-**What changes:** <!-- Which environmental component or process is affected? -->
-**How it changes:** <!-- What is the new state or behavior? -->
-**Who is affected:** <!-- Reference stakeholders from g7 if applicable. -->
-
-### E5.2: [Effect]
-
-<!-- Continue for each significant environmental change. Remove this
-     file entirely if the system does not alter its environment. -->
+**What changes:** Agent applications no longer implement their own agentic
+conversation loops.
+**How it changes:** The library manages the multi-turn LLM interaction cycle —
+sending messages, processing tool-use requests, executing tools, and determining
+when a response is ready. The application retains control of obtaining user input
+and initiating conversations; the library handles the loop internals.
+**Who is affected:** Library consumer (G7.2).

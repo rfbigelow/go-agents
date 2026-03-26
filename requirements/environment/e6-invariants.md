@@ -1,25 +1,31 @@
 # E6: Invariants
 
-<!-- Environmental properties that must remain true regardless of what
-     the system does. These are conditions that the system must preserve,
-     not violate.
+### E6.1: Application Controls Execution Flow
 
-     Each invariant should have a unique identifier (E6.1, E6.2, ...).
+**Must always be true:** The consuming application initiates all interactions
+with the library and receives control back when each interaction completes. The
+library must not take over the main loop, spawn unmanaged background work, or
+block indefinitely without a mechanism for the application to cancel.
+**Rationale:** The library is a component within a larger application. If it
+seizes control of execution flow, it prevents the application from managing its
+own lifecycle — handling signals, enforcing timeouts, or coordinating with other
+subsystems.
 
-     Invariants differ from constraints (e3): a constraint limits what
-     the system CAN do; an invariant states what must ALWAYS be true
-     in the environment, and the system must not break it.
+### E6.2: Anthropic API Protocol Compliance
 
-     Examples: data consistency rules, business rules that cannot be
-     violated, safety conditions, conservation laws in the domain. -->
+**Must always be true:** All messages sent to the Anthropic Messages API (E2.1)
+conform to the API's protocol: valid message sequences, role alternation rules,
+and content format requirements.
+**Rationale:** Violating the API contract produces errors or undefined behavior
+from the LLM provider. The library mediates all API communication (E5.2), so
+protocol compliance is its responsibility.
 
-### E6.1: [Invariant]
+### E6.3: Consumer Resource Ownership
 
-**Must always be true:** <!-- State the invariant precisely. -->
-**Rationale:** <!-- Why does this matter? What goes wrong if violated? -->
-
-### E6.2: [Invariant]
-
-<!-- Continue for each invariant. For simple projects, this file may
-     be empty or removed. For regulated or safety-critical systems,
-     this can be one of the most important files. -->
+**Must always be true:** The consuming application can manage the lifecycle of
+all resources it provides to or obtains from the library — including canceling
+in-flight requests, bounding memory usage, and shutting down cleanly.
+**Rationale:** Extends E3.5 (Consumer Resource Control) as an invariant: the
+library must never hold resources hostage or prevent the application from
+reclaiming them. Violation would make the library unsuitable for production
+use in long-running applications.

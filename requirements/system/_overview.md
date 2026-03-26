@@ -1,26 +1,29 @@
 # System Overview
 
-<!-- Layer 1: Readable summary of the System book. This file should give
-     a human or agent a solid understanding of WHAT the system does and
-     how it is structured, without needing the full detail of chapter files.
-
-     Target length: one to two pages. -->
-
 ## System Architecture
 
-<!-- High-level description of the system's major components (clusters)
-     and how they relate. A few sentences or a simple diagram.
-     Reference s1 for full details. -->
+The library provides four components: an **Agent** (S1.1) that drives the
+agentic conversation loop, a **Client** (S1.2) that wraps the Anthropic Go SDK
+for streaming LLM communication, a **Tool Registry** (S1.3) for registering and
+dispatching tools, and managed **Conversation State** (S1.4). See S1 for details.
 
 ## Key Functionality
 
-<!-- The most important things the system does. Summarize the major
-     functional areas. Reference s2 for full details. -->
+The Agent manages the conversation loop — sending messages to the LLM,
+dispatching tool calls in parallel, and repeating until a final response is
+ready. Capabilities are progressive: a minimal Agent does simple completions;
+tool use, HITL, extended thinking, deterministic logic, and sub-agent composition
+are layered on incrementally. Errors and panics in tools are isolated and
+reported back to the LLM. A configurable iteration limit guards against runaway
+loops. See S2 for details.
 
 ## External Interfaces
 
-<!-- How the system connects to the outside world: APIs, user interfaces,
-     data imports/exports. Reference s3 for full details. -->
+The library exposes a Go API for agent creation, configuration, and execution
+(S3). The consuming application controls the interaction flow — the library
+never takes over the main loop (E6.1). Externally, the library communicates
+with the Anthropic Messages API via the Go SDK (E2.1, E2.2). See S3 for
+details.
 
 ## Chapter Index
 

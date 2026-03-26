@@ -1,30 +1,32 @@
 # Environment Overview
 
-<!-- Layer 1: Readable summary of the Environment book. This file should
-     give a human or agent a solid understanding of the external context
-     the system operates within.
-
-     The environment is everything external that the system must work with,
-     respect, or account for. It exists independently of the project — it
-     describes the world as it IS, not as we want it to be.
-
-     Target length: half a page to one page. -->
-
 ## Key External Systems and Entities
 
-<!-- What does the system interact with? APIs, databases, human processes,
-     hardware, other software? Reference e2 for full details. -->
+The library interacts with two external components, both owned by Anthropic:
+the **Messages API** (E2.1) for LLM completions and the **Anthropic Go SDK**
+(E2.2) which provides the Go client for that API. See E2 for details.
 
 ## Critical Constraints
 
-<!-- What external factors limit our choices? Regulations, technology
-     standards, organizational policies? Reference e3 for full details. -->
+The library is constrained to **Go 1.25+** (E3.1), **minimal dependencies**
+beyond stdlib and the Anthropic SDK (E3.2), **platform agnosticism** (E3.3),
+**MIT license compatibility** (E3.4), and **consumer resource control** (E3.5).
+See E3 for details.
 
 ## Important Assumptions
 
-<!-- What are we assuming to be true about the environment? These are
-     things that, if wrong, would change our requirements.
-     Reference e4 for full details. -->
+We assume Anthropic is the **sole LLM provider** (E4.1), the project has a
+**single developer** (E4.2), and the Anthropic Go SDK provides a **reasonably
+stable API** (E4.3). See E4 for details.
+
+## Effects and Invariants
+
+Introducing the library has two main environmental effects: consumer applications
+take on a **dependency** on go-agents and transitively on the SDK (E5.1), and
+**conversation loop management is delegated** to the library (E5.2). Three
+invariants must hold: the **application controls execution flow** (E6.1), all
+API communication is **protocol-compliant** (E6.2), and the **consumer owns its
+resources** (E6.3). See E5 and E6 for details.
 
 ## Chapter Index
 

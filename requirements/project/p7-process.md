@@ -11,9 +11,11 @@
 
 ### Elicitation
 
-<!-- How are requirements gathered? Who is consulted? What techniques
-     are used (interviews, workshops, document analysis, prototyping)?
-     Reference stakeholders from g7. -->
+Requirements are gathered through AI-assisted conversation between the sole
+developer (P1.1) and an AI assistant, following the PEGS elicitation order
+(Goals → Stakeholders → Environment → System → Project). The developer is
+both the domain expert and the decision-maker. Requirements are written into
+PEGS files as they are gathered, not batched for later.
 
 ### Documentation
 
@@ -27,8 +29,10 @@ records the rationale for changes.
 
 ### Review and Approval
 
-<!-- How are requirements reviewed? Who approves them?
-     What constitutes sign-off? -->
+The sole developer reviews and approves all requirements. AI-assisted review
+(using the PEGS review checklist) provides a quality check against Meyer's
+principles and the Seven Sins. Requirements are considered approved when
+committed to the main branch.
 
 ### Change Management
 
@@ -46,5 +50,6 @@ Changes to requirements follow the change request workflow:
 
 ## Reporting
 
-<!-- How is requirements status communicated? What reports or summaries
-     are produced and for whom? -->
+No formal reporting. Requirements status is visible in the repository itself —
+the coverage of PEGS files and the presence of TODO comments indicate areas
+needing attention. The README (Layer 0) provides a project status summary.
