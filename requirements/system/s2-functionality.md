@@ -165,3 +165,52 @@ parent's stream and from other sub-agents' streams, so that concurrent output
 can be rendered independently.
 **Relates to:** S2.2 (Conversation Loop), S2.3 (Streaming), S2.5 (Tool
 Dispatch), G5.4 (Composing Agents with Sub-Agents).
+
+## Observability
+
+### S2.12: Distributed Tracing
+
+**Description:** The library creates OpenTelemetry spans for significant
+operations, forming a trace tree that represents the structure of an agent
+run. Spans are created for: the overall Agent.Run invocation (root span for
+top-level agents, child span for sub-agents),
+each LLM API call, each tool dispatch batch, each individual tool execution,
+and each sub-agent invocation. Spans carry attributes relevant to the
+operation (e.g., tool name, model, turn number) and record errors when
+operations fail. Span context is propagated via `context.Context`, so
+sub-agent spans appear as children of the tool dispatch span that invoked
+them.
+**Trigger:** Every significant operation during agent execution.
+**Inputs:** `context.Context` carrying the current span context.
+**Outputs:** Spans exported via whatever OTEL SDK the consuming application
+has configured. No-op if no SDK is configured.
+**Rules:** The library depends only on the OTEL Trace API (E2.3), never on
+the OTEL SDK. The consuming application is responsible for configuring the
+OTEL SDK, choosing an exporter, and managing the tracer provider lifecycle.
+Span names follow a consistent naming convention (e.g., `agent.run`,
+`agent.llm_call`, `agent.tool.<name>`, `agent.sub_agent.<name>`).
+**Relates to:** E2.3 (OTEL Trace API), E3.5 (Consumer Resource Control),
+E6.1 (Application Controls Execution Flow), S2.2 (Conversation Loop),
+S2.5 (Tool Dispatch), S2.11 (Sub-Agent Composition).
+
+### S2.13: Structured Logging
+
+**Description:** The library emits structured log entries via slog at key
+lifecycle points. Log entries include contextual attributes such as agent
+identifier, tool name, turn number, and error details. Log levels follow
+Go conventions: Info for lifecycle events (run started, run completed, tool
+dispatched), Debug for operational detail (LLM request metadata, tool
+arguments), Error for failures (API errors, tool errors, recovered panics).
+The library obtains its logger from a `*slog.Logger` provided during Agent
+configuration, defaulting to `slog.Default()` if none is provided.
+**Trigger:** Key lifecycle events during agent execution.
+**Inputs:** `*slog.Logger` provided at Agent configuration time.
+**Outputs:** Structured log entries emitted via the configured slog handler.
+**Rules:** The library never configures a slog handler — the consuming
+application controls log output format, destination, and filtering. Log
+messages are stable: message strings and attribute keys are not removed or
+renamed without a major version bump, to support log-based alerting and
+parsing. When OTEL tracing is active, log entries
+include trace and span IDs as attributes to enable log-trace correlation.
+**Relates to:** E2.4 (slog), E3.5 (Consumer Resource Control), E6.1
+(Application Controls Execution Flow).

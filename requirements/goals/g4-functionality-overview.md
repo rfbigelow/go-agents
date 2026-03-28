@@ -34,6 +34,15 @@ completions. The developer layers on capabilities — tool use, human-in-the-loo
 interaction, extended thinking, deterministic logic — incrementally as needed.
 There is no upfront complexity tax for capabilities the agent does not use.
 
+**G4.7: Provide observability.** The library instruments its operations with
+distributed traces and structured logs. Traces form a span tree covering the
+agent run, each LLM call, each tool execution, and sub-agent invocations,
+enabling the developer to understand timing, causality, and errors across
+the full agent workflow. Structured logs emit key lifecycle events with
+contextual attributes. The developer controls trace collection (via OTEL SDK
+configuration) and log output (via slog handler configuration) — the library
+provides the instrumentation, not the infrastructure.
+
 ## How Users Will Interact With the System
 
 go-agents is a Go library. Developers import it into their applications, create

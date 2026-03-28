@@ -122,8 +122,36 @@ checks specific to any OS, cloud platform, or deployment environment.
 
 **Verifies:** E3.2
 **Method:** Inspection of `go.mod`.
-**Pass condition:** Direct dependencies are limited to the Go standard library
-and the Anthropic Go SDK. Any additional dependency has explicit justification.
+**Pass condition:** Direct dependencies are limited to the Go standard library,
+the Anthropic Go SDK, and the OpenTelemetry Trace API. Any additional
+dependency has explicit justification.
+
+## Observability Verification
+
+### S6.16: Trace Span Structure
+
+**Verifies:** S2.12
+**Method:** Test with an in-memory OTEL span exporter and mocked API
+responses.
+**Pass condition:** An agent run produces a span tree with the expected
+structure: a root Agent.Run span with child spans for each LLM call and
+tool dispatch. Tool dispatch spans have child spans for individual tool
+executions. Sub-agent tool executions produce nested Agent.Run spans with
+their own LLM call and tool spans as children. Spans carry expected
+attributes (tool name, model, turn number). Failed operations record errors
+on their spans.
+
+### S6.17: Structured Log Output
+
+**Verifies:** S2.13
+**Method:** Test with a custom slog handler that captures log records, using
+mocked API responses.
+**Pass condition:** An agent run emits structured log entries at expected
+lifecycle points (run started, LLM call, tool dispatched, run completed).
+Log entries include expected contextual attributes (agent identifier, tool
+name, turn number). Error events are logged at Error level. Debug-level
+entries include operational detail. When tracing is active, log entries
+include trace and span ID attributes.
 
 ## Acceptance Test (Example Application)
 
@@ -136,7 +164,9 @@ Anthropic API.
 **Pass condition:** The example application can hold a multi-turn conversation
 with tool use, demonstrating that the library's core capabilities work together
 in a realistic setting. The application controls the interaction loop — obtaining
-user input, calling the Agent, and displaying responses.
+user input, calling the Agent, and displaying responses. The application
+configures an OTEL SDK exporter and slog handler, demonstrating that traces
+and structured logs are emitted during agent execution.
 
 ## Verification Coverage
 
@@ -153,3 +183,5 @@ user input, calling the Agent, and displaying responses.
 | S2.9 | <!-- TODO: Add when extended thinking is elaborated --> |
 | S2.10 | <!-- TODO: Add when deterministic logic is elaborated --> |
 | S2.11 | S6.10, S6.11, S6.12 |
+| S2.12 | S6.16, S6.14 |
+| S2.13 | S6.17 |

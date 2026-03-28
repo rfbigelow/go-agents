@@ -15,7 +15,10 @@ ready. Capabilities are progressive: a minimal Agent does simple completions;
 tool use, HITL, extended thinking, deterministic logic, and sub-agent composition
 are layered on incrementally. Errors and panics in tools are isolated and
 reported back to the LLM. A configurable iteration limit guards against runaway
-loops. See S2 for details.
+loops. All operations are instrumented with distributed traces (via OTEL) and
+structured logs (via slog), giving consumers full visibility into agent behavior
+without the library imposing any observability infrastructure. See S2 for
+details.
 
 ## External Interfaces
 

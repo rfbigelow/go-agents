@@ -88,6 +88,33 @@ The HTTP API provided by an LLM provider (e.g., Anthropic, OpenAI) through
 which the agent sends prompts and receives completions. Each vendor has its
 own protocol, authentication, and tool-use conventions.
 
+### OpenTelemetry (OTEL)
+
+An open standard for distributed tracing, metrics, and logging. The library
+uses the OTEL Trace API to create spans that represent units of work. The
+OTEL API is a lightweight dependency that is a no-op when no SDK is
+configured, allowing the consuming application to control whether and how
+traces are collected.
+
+### Span
+
+A named, timed unit of work within a trace. Spans form parent-child trees
+that represent the causal structure of an operation. In this library, spans
+represent operations such as an agent run, an LLM call, or a tool execution.
+
+### Structured Logging
+
+Logging where each log entry consists of a message plus typed key-value
+attributes, rather than a formatted string. The Go standard library provides
+this via the `log/slog` package. Structured logs are machine-parseable and
+integrate naturally with observability platforms.
+
+### Trace
+
+A tree of spans representing the complete path of an operation through the
+system. A single agent run produces a trace with spans for the overall run,
+each LLM call, and each tool execution.
+
 <!-- ELICITATION GUIDANCE: During requirements gathering, watch for:
      - Terms that different stakeholders use differently
      - Terms that seem obvious but have subtle domain-specific meaning

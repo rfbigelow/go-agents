@@ -13,8 +13,12 @@ APIs available in Go 1.25.
 
 **Source:** Developer preference.
 **Description:** The library should minimize external dependencies beyond the
-Go standard library and the Anthropic Go SDK. New dependencies require
-explicit justification.
+Go standard library and the Anthropic Go SDK. The OpenTelemetry Trace API
+(E2.3) is an accepted dependency, justified by its role as the industry
+standard for distributed tracing, its lightweight nature (no-op without a
+consumer-configured SDK), and the impracticality of achieving equivalent
+functionality through stdlib alone. Any further dependencies require explicit
+justification.
 **Impact:** Prefer stdlib solutions. Avoid dependency on large frameworks or
 libraries that pull in transitive dependency trees.
 

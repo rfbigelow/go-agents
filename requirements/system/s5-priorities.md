@@ -14,7 +14,7 @@
 ### Must
 
 These form the core library — an agent that can hold conversations, use tools,
-and handle errors.
+handle errors, and provide observability.
 
 - **S2.1** — Agent creation and configuration
 - **S2.2** — Conversation loop execution
@@ -23,6 +23,8 @@ and handle errors.
 - **S2.5** — Tool dispatch and execution
 - **S2.6** — Conversation state management
 - **S2.7** — Transient error handling
+- **S2.12** — Distributed tracing
+- **S2.13** — Structured logging
 
 ### Should
 
@@ -55,3 +57,7 @@ No requirements currently at this level.
   depend on S2.2 but are independent of each other.
 - S2.11 (sub-agent composition) depends on S2.2 and S2.5 (a sub-agent is
   invoked as a tool).
+- S2.12 (tracing) and S2.13 (logging) are cross-cutting: they apply to
+  S2.2 (conversation loop), S2.5 (tool dispatch), and S2.11 (sub-agent
+  composition). Instrumentation for each component is added when that
+  component is implemented.
