@@ -23,13 +23,14 @@ conversation loop, a Client that wraps the Anthropic Go SDK for streaming
 LLM communication, a Tool Registry for registering and dispatching tools,
 and managed Conversation State. The Agent is designed for progressive
 capability addition — from simple completions to tool use, human-in-the-loop,
-extended thinking, and deterministic logic.
+extended thinking, and deterministic logic. All operations are instrumented
+with distributed traces (via OpenTelemetry) and structured logs (via slog).
 
 ## Environment Summary
 
 - **LLM provider:** Anthropic (via the Anthropic Go SDK)
 - **Language:** Go 1.25+
-- **Dependencies:** Minimal — stdlib + Anthropic Go SDK
+- **Dependencies:** Minimal — stdlib + Anthropic Go SDK + OpenTelemetry Trace API
 - **License:** MIT
 - **Platform:** Agnostic (no cloud/OS coupling)
 
