@@ -40,7 +40,7 @@ A planned future capability of the Conversation State component.
 The core runtime cycle of an agent: send messages to the LLM, receive a
 response, check if the response contains tool-use requests, execute tools,
 append results, and repeat until the LLM produces a final (non-tool-use)
-response. Also called an "agentic loop."
+response.
 
 ### Extended Thinking
 
@@ -71,7 +71,7 @@ configuration.
 ### Sub-Agent
 
 An agent that is started by another agent as part of its workflow. A sub-agent
-is a full agentic loop in its own right — with its own conversation state and
+is a full conversation loop in its own right — with its own conversation state and
 potentially its own tools — but is initiated and managed by a parent agent.
 Sub-agent composition is a form of tool use from the parent's perspective, but
 represents an independent agentic workflow.
