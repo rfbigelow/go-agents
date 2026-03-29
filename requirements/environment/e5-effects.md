@@ -8,7 +8,7 @@ on go-agents and, transitively, on the Anthropic Go SDK (E2.2).
 interacting with the Anthropic Go SDK, applications depend on go-agents, which
 mediates SDK access. The library's API stability and release cadence become a
 factor in consumer application maintenance.
-**Who is affected:** Library consumer (G7.2).
+**Who is affected:** Agent application developers who consume the library.
 
 ### E5.2: Conversation Loop Management Is Delegated
 
@@ -18,4 +18,4 @@ conversation loops.
 sending messages, processing tool-use requests, executing tools, and determining
 when a response is ready. The application retains control of obtaining user input
 and initiating conversations; the library handles the loop internals.
-**Who is affected:** Library consumer (G7.2).
+**Who is affected:** Agent application developers who consume the library.
