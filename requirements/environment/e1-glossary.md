@@ -29,11 +29,25 @@ The range of agent sophistication, from simple single-turn LLM completions
 workflows with human-in-the-loop control. The library is designed to support
 applications at any point on this spectrum.
 
+### Client
+
+The library component (S1.2) that wraps the Anthropic Go SDK to communicate
+with the LLM. The Client encapsulates request construction, streaming, and
+transient error handling, providing the interface the Agent uses for all LLM
+interactions.
+
 ### Compaction
 
 The process of summarizing or truncating conversation history to keep the
 context within the LLM's token limits while preserving essential information.
 A planned future capability of the Conversation State component.
+
+### Context Window
+
+The maximum number of tokens an LLM can process in a single request, including
+both the conversation history and the new response. When the conversation
+history exceeds the context window, the API returns an error and the consuming
+application must apply a strategy such as compaction or truncation to continue.
 
 ### Conversation Loop
 
@@ -41,6 +55,14 @@ The core runtime cycle of an agent: send messages to the LLM, receive a
 response, check if the response contains tool-use requests, execute tools,
 append results, and repeat until the LLM produces a final (non-tool-use)
 response.
+
+### Conversation State
+
+The library component (S1.4) that owns the message history for an agent
+session. Stores user messages, assistant responses, and tool results, and
+enforces correct message ordering and protocol conventions. The consuming
+application can control resource-significant aspects such as history bounds
+and compaction strategy.
 
 ### Extended Thinking
 
@@ -76,11 +98,25 @@ potentially its own tools — but is initiated and managed by a parent agent.
 Sub-agent composition is a form of tool use from the parent's perspective, but
 represents an independent agentic workflow.
 
+### Tool Registry
+
+The library component (S1.3) that manages the set of tools available to an
+agent. The consuming application registers tool definitions and implementations
+with the registry; the Agent uses it to provide tool definitions to the LLM and
+to dispatch tool-use requests to the correct implementation.
+
 ### Tool Dispatch
 
 The mechanism by which the harness routes a tool-use request from the LLM
 to the appropriate tool implementation, executes it, and returns the result
 to the conversation.
+
+### Transient Error
+
+An API error that is temporary and may succeed on retry — specifically rate
+limit responses, network timeouts, and server errors. Distinguished from
+non-transient errors (authentication failures, invalid requests) which
+indicate a problem that retrying will not resolve.
 
 ### Vendor API
 
