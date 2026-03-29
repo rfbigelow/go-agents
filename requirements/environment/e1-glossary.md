@@ -31,7 +31,7 @@ applications at any point on this spectrum.
 
 ### Client
 
-The library component (S1.2) that wraps the Anthropic Go SDK to communicate
+The library component that wraps the Anthropic Go SDK to communicate
 with the LLM. The Client encapsulates request construction, streaming, and
 transient error handling, providing the interface the Agent uses for all LLM
 interactions.
@@ -58,7 +58,7 @@ response.
 
 ### Conversation State
 
-The library component (S1.4) that owns the message history for an agent
+The library component that owns the message history for an agent
 session. Stores user messages, assistant responses, and tool results, and
 enforces correct message ordering and protocol conventions. The consuming
 application can control resource-significant aspects such as history bounds
@@ -100,7 +100,7 @@ represents an independent agentic workflow.
 
 ### Tool Registry
 
-The library component (S1.3) that manages the set of tools available to an
+The library component that manages the set of tools available to an
 agent. The consuming application registers tool definitions and implementations
 with the registry; the Agent uses it to provide tool definitions to the LLM and
 to dispatch tool-use requests to the correct implementation.
