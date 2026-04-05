@@ -3,7 +3,7 @@
 ## S4.1: Simple Conversation with Error Recovery
 
 **Elaborates:** G5.1
-**Preconditions:** Agent created with a Client and system prompt. No tools
+**Preconditions:** Agent created with a Completer and system prompt. No tools
 registered.
 **Actor:** Library consumer (G7.2)
 
@@ -11,8 +11,8 @@ registered.
 
 1. The consumer sends a user message to the Agent (S2.2).
 2. The Agent sends the message and conversation history to the LLM via the
-   Client (S1.2).
-3. The Client streams the response back (S2.3).
+   Completer (S1.2).
+3. The Completer streams the response back (S2.3).
 4. The Agent appends the user message and assistant response to Conversation
    State (S1.4) and returns the response to the consumer.
 5. The consumer sends follow-up messages; conversation history grows across
@@ -28,12 +28,12 @@ registered.
 
 **Error cases:**
 
-- **API error on any turn:** The Client receives a non-transient error from
+- **API error on any turn:** The Completer receives a non-transient error from
   the Anthropic API (e.g., invalid request, authentication failure). The Agent
   returns the error to the consumer. Conversation history is preserved as it
   was before the failing message — the message that prompted the error is not
   appended.
-- **Transient API error:** The Client receives a transient error (rate limit,
+- **Transient API error:** The Completer receives a transient error (rate limit,
   timeout, server error). Retry behavior per S2.7 applies. If retries are
   exhausted, the error propagates to the consumer as above.
 

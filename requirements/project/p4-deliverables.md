@@ -4,7 +4,7 @@
 
 ### P4.1: go-agents Library
 
-**Description:** A Go module providing the Agent, Client, and Tool Registry
+**Description:** A Go module providing the Agent, Completer, and Tool Registry
 components (S1.1–S1.4) with the functionality described in S2.
 **Audience:** Agent application developers (G7.2).
 **Acceptance:** All functional requirements in S2 are implemented and verified
@@ -41,7 +41,7 @@ demonstrates idiomatic usage.
 
 ## Major Tasks
 
-- Design and implement core abstractions (Agent, Client, Tool interface)
+- Design and implement core abstractions (Agent, Completer, Tool interface)
 - Implement conversation loop with streaming
 - Implement tool registration and dispatch
 - Add progressive capabilities (HITL, extended thinking, deterministic logic)

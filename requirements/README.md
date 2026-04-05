@@ -18,10 +18,10 @@ infrastructure.
 
 ## System Overview
 
-go-agents provides four core components: an Agent that manages the agentic
-conversation loop, a Client that wraps the Anthropic Go SDK for streaming
-LLM communication, a Tool Registry for registering and dispatching tools,
-and managed Conversation State. The Agent is designed for progressive
+go-agents provides four core components: an Agent that manages the
+conversation loop, a Completer interface that abstracts LLM communication
+(with a provided implementation for the Anthropic Go SDK), a Tool Registry
+for registering and dispatching tools, and managed Conversation State. The Agent is designed for progressive
 capability addition — from simple completions to tool use, human-in-the-loop,
 extended thinking, and deterministic logic. All operations are instrumented
 with distributed traces (via OpenTelemetry) and structured logs (via slog).

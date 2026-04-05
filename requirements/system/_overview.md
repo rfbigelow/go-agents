@@ -3,9 +3,10 @@
 ## System Architecture
 
 The library provides four components: an **Agent** (S1.1) that drives the
-agentic conversation loop, a **Client** (S1.2) that wraps the Anthropic Go SDK
-for streaming LLM communication, a **Tool Registry** (S1.3) for registering and
-dispatching tools, and managed **Conversation State** (S1.4). See S1 for details.
+conversation loop, a **Completer** (S1.2) interface that abstracts LLM
+communication (with a provided implementation for the Anthropic Go SDK), a
+**Tool Registry** (S1.3) for registering and dispatching tools, and managed
+**Conversation State** (S1.4). See S1 for details.
 
 ## Key Functionality
 
@@ -24,9 +25,9 @@ details.
 
 The library exposes a Go API for agent creation, configuration, and execution
 (S3). The consuming application controls the interaction flow — the library
-never takes over the main loop (E6.1). Externally, the library communicates
-with the Anthropic Messages API via the Go SDK (E2.1, E2.2). See S3 for
-details.
+never takes over the main loop (E6.1). The consuming application creates an
+Anthropic client (E2.2) and provides it to the library's Completer
+implementation, which handles LLM communication (E2.1). See S3 for details.
 
 ## Chapter Index
 

@@ -29,12 +29,13 @@ The range of agent sophistication, from simple single-turn LLM completions
 workflows with human-in-the-loop control. The library is designed to support
 applications at any point on this spectrum.
 
-### Client
+### Completer
 
-The library component that wraps the Anthropic Go SDK to communicate
-with the LLM. The Client encapsulates request construction, streaming, and
-transient error handling, providing the interface the Agent uses for all LLM
-interactions.
+A Go interface that abstracts LLM communication for the Agent. The Completer
+accepts conversation messages and returns a streaming completion. The Agent
+depends only on this interface, not on any specific LLM client. The library
+provides a default Completer implementation that wraps an Anthropic client
+created and owned by the consuming application.
 
 ### Compaction
 

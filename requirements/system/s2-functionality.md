@@ -9,7 +9,7 @@ configures its capabilities. A minimally configured Agent can perform simple
 LLM completions. Capabilities (tool use, human-in-the-loop, extended thinking,
 deterministic logic) are added incrementally.
 **Trigger:** Application initialization.
-**Inputs:** Client instance, optional configuration (system prompt, model
+**Inputs:** Completer instance, optional configuration (system prompt, model
 parameters, capabilities).
 **Outputs:** A configured Agent ready to run.
 **Rules:** An Agent with no tools registered behaves as a simple chat
@@ -40,12 +40,12 @@ S2.11 (Sub-Agent Composition).
 **Description:** LLM responses are streamed to the consuming application as
 they are generated, rather than waiting for the full response.
 **Trigger:** Each LLM response during conversation loop execution.
-**Inputs:** Streaming response from the Client.
+**Inputs:** Streaming response from the Completer.
 **Outputs:** Incremental content delivered to the consuming application via
 a callback or channel mechanism.
 **Rules:** Streaming is the default mode. The consuming application must be
 able to process partial responses.
-**Relates to:** S1.2 (Client), G3.1 (reusability).
+**Relates to:** S1.2 (Completer), G3.1 (reusability).
 
 ## Tool Use
 
@@ -97,16 +97,18 @@ to manage message ordering or protocol compliance.
 
 ### S2.7: Transient Error Handling
 
-**Description:** The library handles transient API errors (rate limits,
-network timeouts, server errors) with appropriate retry behavior.
+**Description:** The library-provided Completer implementation handles
+transient API errors (rate limits, network timeouts, server errors) with
+appropriate retry behavior.
 **Trigger:** Transient error response from the Anthropic API.
 **Inputs:** Error response.
 **Outputs:** Retried request, or propagated error if retries are exhausted.
 **Rules:** If the Anthropic Go SDK already provides retry behavior, the
-library defers to it rather than layering additional retries. Non-transient
-errors (authentication failures, invalid requests) are propagated
-immediately.
-**Relates to:** S1.2 (Client), E2.2 (Anthropic Go SDK).
+library-provided Completer defers to it rather than layering additional
+retries. Non-transient errors (authentication failures, invalid requests)
+are propagated immediately. Custom Completer implementations are responsible
+for their own error handling.
+**Relates to:** S1.2 (Completer), E2.2 (Anthropic Go SDK).
 
 ## Progressive Capabilities
 
@@ -136,7 +138,7 @@ Flow).
 **Description:** The Agent supports Anthropic's extended thinking feature,
 allowing the model to reason through complex problems before responding.
 **Trigger:** Enabled via Agent configuration.
-**Relates to:** S1.2 (Client), E2.1 (Anthropic Messages API).
+**Relates to:** S1.2 (Completer), E2.1 (Anthropic Messages API).
 
 ### S2.10: Deterministic Logic
 

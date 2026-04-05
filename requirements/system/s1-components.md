@@ -8,20 +8,24 @@ the LLM. Designed for progressive capability addition — a minimal Agent
 performs simple completions; capabilities such as tool use, human-in-the-loop
 interaction, extended thinking, and deterministic logic are layered on
 incrementally.
-**Interacts with:** Client (to communicate with the LLM), Tool registry (to
-dispatch tool calls), conversation state.
+**Interacts with:** Completer (to communicate with the LLM), Tool Registry (to
+dispatch tool calls), Conversation State.
 **Key properties:** Must support the full agentic spectrum from simple
 single-turn completion to autonomous multi-step workflows. Capabilities are
 composable and opt-in.
 
-## S1.2: Client
+## S1.2: Completer
 
-**Purpose:** Wraps the Anthropic Go SDK to provide the interface the Agent
-uses to communicate with the LLM. Encapsulates API-specific concerns such
-as request construction, streaming, and transient error handling.
-**Interacts with:** Anthropic Go SDK (E2.2), Agent.
-**Key properties:** Supports streaming responses. Handles transient API
-errors (retries, rate limits) unless already handled by the SDK.
+**Purpose:** A Go interface that the Agent uses to get completions from the
+LLM. The interface abstracts LLM communication so the Agent depends only on
+the Completer contract, not on any specific SDK or client. The library provides
+a default implementation that wraps an Anthropic client created and owned by
+the consuming application.
+**Interacts with:** Agent (as its LLM communication interface), Anthropic Go
+SDK (E2.2) via the library-provided implementation.
+**Key properties:** Defined as a Go interface — consumers can provide
+alternative implementations. The library-provided implementation supports
+streaming responses and handles transient API errors (retries, rate limits).
 
 ## S1.3: Tool Registry
 
@@ -50,9 +54,11 @@ features like sliding context windows and context compaction.
 ```
 Consuming Application
     │
-    ├── creates and configures ──▶ Agent
-    │                                │
-    │                                ├── uses ──▶ Client ──▶ Anthropic SDK ──▶ Anthropic API
+    ├── creates ──▶ Anthropic Client (from SDK)
+    │                     │
+    │                     └── wrapped by ──▶ Completer (library-provided impl)
+    │                                            │
+    ├── creates and configures ──▶ Agent ────uses─┘
     │                                │
     │                                ├── uses ──▶ Tool Registry
     │                                │               │

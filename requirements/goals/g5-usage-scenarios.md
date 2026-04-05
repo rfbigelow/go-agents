@@ -9,7 +9,7 @@ LLM, with no tools or advanced features.
 
 **Steps:**
 
-1. The developer creates an Agent with a Client and a system prompt.
+1. The developer creates an Agent with a Completer and a system prompt.
 2. The developer sends a user message to the Agent.
 3. The Agent streams the LLM's response back to the developer's application.
 4. The developer sends follow-up messages; the Agent maintains the conversation
