@@ -1,6 +1,6 @@
 # S2: Functionality
 
-## Agent Lifecycle
+## Agent (S1.1)
 
 ### S2.1: Agent Creation and Configuration
 
@@ -47,7 +47,114 @@ a callback or channel mechanism.
 able to process partial responses.
 **Relates to:** S1.2 (Completer), G3.1 (reusability).
 
-## Completer
+### Progressive Capabilities
+
+<!-- TODO: Detail these as they are further specified during elicitation. -->
+
+#### S2.8: Human-in-the-Loop
+
+**Description:** The Agent can pause execution and request input or approval
+from a human before continuing. This enables workflows where certain
+decisions require human judgment.
+**Trigger:** Agent-defined condition or tool that requires human input.
+**Relates to:** S2.2 (Conversation Loop), E6.1 (Application Controls Execution
+Flow).
+
+<!-- TODO: Define the HITL execution model. Current thinking: the Agent's run
+     method returns a response that indicates its type — either a final answer
+     to the user's request or a HITL request for further user input. This keeps
+     the execution model simple and leaves the application in control of the
+     interaction flow (consistent with E6.1). Need to determine:
+     - How the response type is represented (tagged union / enum + payload?)
+     - How the application resumes the conversation after providing HITL input
+     - Whether HITL responses carry structured metadata (e.g., what kind of
+       input is needed) or are free-form text from the LLM -->
+
+#### S2.9: Extended Thinking
+
+**Description:** The Agent supports Anthropic's extended thinking feature,
+allowing the model to reason through complex problems before responding.
+**Trigger:** Enabled via Agent configuration.
+**Relates to:** S1.2 (Completer), E2.1 (Anthropic Messages API).
+
+#### S2.10: Deterministic Logic
+
+**Description:** The Agent can incorporate deterministic (non-LLM) logic
+steps within a workflow — e.g., validation, transformation, or routing
+that does not require LLM inference.
+**Trigger:** Agent configuration includes deterministic steps.
+**Relates to:** S2.2 (Conversation Loop).
+
+#### S2.11: Sub-Agent Composition
+
+**Description:** A tool can create and run a sub-agent — a separate agentic
+loop with its own conversation state, tools, and response stream. The parent
+agent invokes a sub-agent as a tool call; the sub-agent runs to completion and
+returns its result. Multiple sub-agents can run in parallel (as part of parallel
+tool execution within a turn).
+**Trigger:** The LLM requests a tool call whose implementation creates and runs
+a sub-agent.
+**Inputs:** Tool arguments passed to the sub-agent tool, which uses them to
+configure and run the sub-agent.
+**Outputs:** Sub-agent result returned as a tool result to the parent agent.
+**Rules:** Sub-agents cannot spawn further sub-agents (maximum nesting depth
+of one). Each sub-agent has its own conversation state, independent of the
+parent's. Each sub-agent produces its own response stream, separate from the
+parent's stream and from other sub-agents' streams, so that concurrent output
+can be rendered independently.
+**Relates to:** S2.2 (Conversation Loop), S2.3 (Streaming), S2.5 (Tool
+Dispatch), G5.4 (Composing Agents with Sub-Agents).
+
+### Observability
+
+#### S2.12: Distributed Tracing
+
+**Description:** The library creates OpenTelemetry spans for significant
+operations, forming a trace tree that represents the structure of an agent
+run. Spans are created for: the overall Agent.Run invocation (root span for
+top-level agents, child span for sub-agents),
+each LLM API call, each tool dispatch batch, each individual tool execution,
+and each sub-agent invocation. Spans carry attributes relevant to the
+operation (e.g., tool name, model, turn number) and record errors when
+operations fail. Span context is propagated via `context.Context`, so
+sub-agent spans appear as children of the tool dispatch span that invoked
+them.
+**Trigger:** Every significant operation during agent execution.
+**Inputs:** `context.Context` carrying the current span context.
+**Outputs:** Spans exported via whatever OTEL SDK the consuming application
+has configured. No-op if no SDK is configured.
+**Rules:** The library depends only on the OTEL Trace API (E2.3), never on
+the OTEL SDK. The consuming application is responsible for configuring the
+OTEL SDK, choosing an exporter, and managing the tracer provider lifecycle.
+Span names follow a consistent naming convention (e.g., `agent.run`,
+`agent.llm_call`, `agent.tool.<name>`, `agent.sub_agent.<name>`).
+**Relates to:** E2.3 (OTEL Trace API), E3.5 (Consumer Resource Control),
+E6.1 (Application Controls Execution Flow), S2.2 (Conversation Loop),
+S2.5 (Tool Dispatch), S2.11 (Sub-Agent Composition).
+
+#### S2.13: Structured Logging
+
+**Description:** The library emits structured log entries via slog at key
+lifecycle points. Log entries include contextual attributes such as agent
+identifier, tool name, turn number, and error details. Log levels follow
+Go conventions: Info for lifecycle events (run started, run completed, tool
+dispatched), Debug for operational detail (LLM request metadata, tool
+arguments), Error for failures (API errors, tool errors, recovered panics).
+The library obtains its logger from a `*slog.Logger` provided during Agent
+configuration, defaulting to `slog.Default()` if none is provided.
+**Trigger:** Key lifecycle events during agent execution.
+**Inputs:** `*slog.Logger` provided at Agent configuration time.
+**Outputs:** Structured log entries emitted via the configured slog handler.
+**Rules:** The library never configures a slog handler — the consuming
+application controls log output format, destination, and filtering. Log
+messages are stable: message strings and attribute keys are not removed or
+renamed without a major version bump, to support log-based alerting and
+parsing. When OTEL tracing is active, log entries
+include trace and span IDs as attributes to enable log-trace correlation.
+**Relates to:** E2.4 (slog), E3.5 (Consumer Resource Control), E6.1
+(Application Controls Execution Flow).
+
+## Completer (S1.2)
 
 ### S2.14: Completer
 
@@ -119,7 +226,24 @@ in the tables above.
 **Relates to:** S1.2 (Completer), S2.2 (Conversation Loop), S2.3 (Streaming),
 E2.1 (Anthropic Messages API), E2.2 (Anthropic Go SDK).
 
-## Tool Use
+### S2.7: Transient Error Handling
+
+**Description:** Transient API errors (rate limits, network timeouts, server
+errors) are handled by the Anthropic Go SDK's built-in retry mechanism. The
+library-provided Completer delegates to the SDK without adding its own retry
+layer. The consuming application controls retry behavior by configuring the
+Anthropic client it provides (e.g., `option.WithMaxRetries()`).
+**Trigger:** Transient error response from the Anthropic API.
+**Inputs:** Error response from the SDK.
+**Outputs:** Either a successful response (if the SDK retried successfully)
+or a propagated error (if retries were exhausted or the error is non-transient).
+**Rules:** The library-provided Completer does not implement retry logic —
+it relies on the SDK's retry behavior. Non-transient errors (authentication
+failures, invalid requests) are propagated immediately. Custom Completer
+implementations are responsible for their own error handling.
+**Relates to:** S1.2 (Completer), E2.2 (Anthropic Go SDK).
+
+## Tool Registry (S1.3)
 
 ### S2.4: Tool Registration
 
@@ -148,7 +272,7 @@ crash). Tool execution errors are reported to the LLM as error results so it
 can decide how to proceed.
 **Relates to:** S1.3 (Tool Registry), S2.2 (Conversation Loop).
 
-## Conversation Management
+## Conversation State (S1.4)
 
 ### S2.6: Conversation State Management
 
@@ -164,129 +288,3 @@ defaults. The consuming application can control resource-significant aspects
 such as history bounds and compaction strategy (per E3.5) but does not need
 to manage message ordering or protocol compliance.
 **Relates to:** S1.4 (Conversation State), E3.5 (Consumer Resource Control).
-
-## Resilience
-
-### S2.7: Transient Error Handling
-
-**Description:** Transient API errors (rate limits, network timeouts, server
-errors) are handled by the Anthropic Go SDK's built-in retry mechanism. The
-library-provided Completer delegates to the SDK without adding its own retry
-layer. The consuming application controls retry behavior by configuring the
-Anthropic client it provides (e.g., `option.WithMaxRetries()`).
-**Trigger:** Transient error response from the Anthropic API.
-**Inputs:** Error response from the SDK.
-**Outputs:** Either a successful response (if the SDK retried successfully)
-or a propagated error (if retries were exhausted or the error is non-transient).
-**Rules:** The library-provided Completer does not implement retry logic —
-it relies on the SDK's retry behavior. Non-transient errors (authentication
-failures, invalid requests) are propagated immediately. Custom Completer
-implementations are responsible for their own error handling.
-**Relates to:** S1.2 (Completer), E2.2 (Anthropic Go SDK).
-
-## Progressive Capabilities
-
-<!-- TODO: Detail these as they are further specified during elicitation. -->
-
-### S2.8: Human-in-the-Loop
-
-**Description:** The Agent can pause execution and request input or approval
-from a human before continuing. This enables workflows where certain
-decisions require human judgment.
-**Trigger:** Agent-defined condition or tool that requires human input.
-**Relates to:** S2.2 (Conversation Loop), E6.1 (Application Controls Execution
-Flow).
-
-<!-- TODO: Define the HITL execution model. Current thinking: the Agent's run
-     method returns a response that indicates its type — either a final answer
-     to the user's request or a HITL request for further user input. This keeps
-     the execution model simple and leaves the application in control of the
-     interaction flow (consistent with E6.1). Need to determine:
-     - How the response type is represented (tagged union / enum + payload?)
-     - How the application resumes the conversation after providing HITL input
-     - Whether HITL responses carry structured metadata (e.g., what kind of
-       input is needed) or are free-form text from the LLM -->
-
-### S2.9: Extended Thinking
-
-**Description:** The Agent supports Anthropic's extended thinking feature,
-allowing the model to reason through complex problems before responding.
-**Trigger:** Enabled via Agent configuration.
-**Relates to:** S1.2 (Completer), E2.1 (Anthropic Messages API).
-
-### S2.10: Deterministic Logic
-
-**Description:** The Agent can incorporate deterministic (non-LLM) logic
-steps within a workflow — e.g., validation, transformation, or routing
-that does not require LLM inference.
-**Trigger:** Agent configuration includes deterministic steps.
-**Relates to:** S2.2 (Conversation Loop).
-
-### S2.11: Sub-Agent Composition
-
-**Description:** A tool can create and run a sub-agent — a separate agentic
-loop with its own conversation state, tools, and response stream. The parent
-agent invokes a sub-agent as a tool call; the sub-agent runs to completion and
-returns its result. Multiple sub-agents can run in parallel (as part of parallel
-tool execution within a turn).
-**Trigger:** The LLM requests a tool call whose implementation creates and runs
-a sub-agent.
-**Inputs:** Tool arguments passed to the sub-agent tool, which uses them to
-configure and run the sub-agent.
-**Outputs:** Sub-agent result returned as a tool result to the parent agent.
-**Rules:** Sub-agents cannot spawn further sub-agents (maximum nesting depth
-of one). Each sub-agent has its own conversation state, independent of the
-parent's. Each sub-agent produces its own response stream, separate from the
-parent's stream and from other sub-agents' streams, so that concurrent output
-can be rendered independently.
-**Relates to:** S2.2 (Conversation Loop), S2.3 (Streaming), S2.5 (Tool
-Dispatch), G5.4 (Composing Agents with Sub-Agents).
-
-## Observability
-
-### S2.12: Distributed Tracing
-
-**Description:** The library creates OpenTelemetry spans for significant
-operations, forming a trace tree that represents the structure of an agent
-run. Spans are created for: the overall Agent.Run invocation (root span for
-top-level agents, child span for sub-agents),
-each LLM API call, each tool dispatch batch, each individual tool execution,
-and each sub-agent invocation. Spans carry attributes relevant to the
-operation (e.g., tool name, model, turn number) and record errors when
-operations fail. Span context is propagated via `context.Context`, so
-sub-agent spans appear as children of the tool dispatch span that invoked
-them.
-**Trigger:** Every significant operation during agent execution.
-**Inputs:** `context.Context` carrying the current span context.
-**Outputs:** Spans exported via whatever OTEL SDK the consuming application
-has configured. No-op if no SDK is configured.
-**Rules:** The library depends only on the OTEL Trace API (E2.3), never on
-the OTEL SDK. The consuming application is responsible for configuring the
-OTEL SDK, choosing an exporter, and managing the tracer provider lifecycle.
-Span names follow a consistent naming convention (e.g., `agent.run`,
-`agent.llm_call`, `agent.tool.<name>`, `agent.sub_agent.<name>`).
-**Relates to:** E2.3 (OTEL Trace API), E3.5 (Consumer Resource Control),
-E6.1 (Application Controls Execution Flow), S2.2 (Conversation Loop),
-S2.5 (Tool Dispatch), S2.11 (Sub-Agent Composition).
-
-### S2.13: Structured Logging
-
-**Description:** The library emits structured log entries via slog at key
-lifecycle points. Log entries include contextual attributes such as agent
-identifier, tool name, turn number, and error details. Log levels follow
-Go conventions: Info for lifecycle events (run started, run completed, tool
-dispatched), Debug for operational detail (LLM request metadata, tool
-arguments), Error for failures (API errors, tool errors, recovered panics).
-The library obtains its logger from a `*slog.Logger` provided during Agent
-configuration, defaulting to `slog.Default()` if none is provided.
-**Trigger:** Key lifecycle events during agent execution.
-**Inputs:** `*slog.Logger` provided at Agent configuration time.
-**Outputs:** Structured log entries emitted via the configured slog handler.
-**Rules:** The library never configures a slog handler — the consuming
-application controls log output format, destination, and filtering. Log
-messages are stable: message strings and attribute keys are not removed or
-renamed without a major version bump, to support log-based alerting and
-parsing. When OTEL tracing is active, log entries
-include trace and span IDs as attributes to enable log-trace correlation.
-**Relates to:** E2.4 (slog), E3.5 (Consumer Resource Control), E6.1
-(Application Controls Execution Flow).
