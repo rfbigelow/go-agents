@@ -11,7 +11,7 @@ require library updates. The library depends on SDK types throughout its API
 (E2.2, E4.3).
 **Affected areas:** E4.3, S1.2, S2.7
 **Mitigation:** Pin to a specific SDK version. Track SDK releases. The Completer
-interface (S1.2) limits the SDK surface area exposed to consumers.
+Completer (S1.2) limits the SDK surface area exposed to consumers.
 **Contingency:** If breakage is frequent, introduce an anti-corruption layer
 between the library and the SDK.
 

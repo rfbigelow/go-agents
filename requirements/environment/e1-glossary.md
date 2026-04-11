@@ -31,11 +31,10 @@ applications at any point on this spectrum.
 
 ### Completer
 
-A Go interface that abstracts LLM communication for the Agent. The Completer
-accepts conversation messages and returns a streaming completion. The Agent
-depends only on this interface, not on any specific LLM client. The library
-provides a default Completer implementation that wraps an Anthropic client
-created and owned by the consuming application.
+The Agent's abstraction for LLM communication. The Completer is created from
+an Anthropic client provided by the consuming application and acts as a
+stateless Adapter: it receives a complete request (messages, tools, model
+configuration), bridges to the SDK, and returns a streaming completion.
 
 ### Compaction
 

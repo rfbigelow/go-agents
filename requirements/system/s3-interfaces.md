@@ -24,16 +24,15 @@ execution logic.
 **Key characteristics:** Simple contract. Tool authors should not need to
 understand library internals.
 
-### S3.3: Completer Interface
+### S3.3: Completer API
 
-**Type:** Go interface
+**Type:** Go package API
 **Consumers:** Agent component (S1.1).
-**Key operations:** Accept conversation messages and return a streaming
-completion.
-**Key characteristics:** Defined as a Go interface so the Agent depends only
-on the Completer contract, not on any specific SDK or client. The library
-provides a default implementation that wraps an Anthropic client (from E2.2)
-created and owned by the consuming application.
+**Key operations:** Create a Completer from an Anthropic client. Accept a
+completion request and return a streaming response.
+**Key characteristics:** Stateless Adapter — bridges between the Agent and
+the Anthropic Go SDK (E2.2). The consuming application creates and owns the
+Anthropic client; the Completer wraps it.
 
 ## External System Interface
 

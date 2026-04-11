@@ -47,6 +47,78 @@ a callback or channel mechanism.
 able to process partial responses.
 **Relates to:** S1.2 (Completer), G3.1 (reusability).
 
+## Completer
+
+### S2.14: Completer
+
+**Description:** The Completer is the Agent's abstraction for LLM
+communication. It is stateless and has a single operation: given a complete
+request, return a streaming response. The Agent assembles the request
+(messages, tool definitions, model configuration) and the Completer bridges
+to the LLM API.
+
+The Completer is created from an Anthropic client provided by the consuming
+application. It acts as an Adapter: translating the request into the SDK's
+`Messages.NewStreaming()` call and returning the resulting stream. It holds a
+reference to the consumer-provided Anthropic client but maintains no state
+of its own.
+
+**ADT Stub:**
+
+```
+Types: COMPLETER
+
+Creators:
+  new_completer: ANTHROPIC_CLIENT → COMPLETER
+
+Queries:
+  complete: COMPLETER × COMPLETION_REQUEST → EVENT_STREAM
+```
+
+**Request parameters (COMPLETION_REQUEST):**
+
+| Parameter | Description |
+|-----------|-------------|
+| messages | The conversation history (user, assistant, and tool-result messages) |
+| model | Which model to use for this completion |
+| max_tokens | Maximum tokens in the response |
+| system | System prompt (optional) |
+| tools | Tool definitions available for this completion (optional) |
+| tool_choice | How the model should choose tools: auto, any, specific, or none (optional) |
+| temperature | Sampling temperature (optional) |
+| thinking | Extended thinking configuration (optional) |
+
+**Response (EVENT_STREAM):**
+
+The Completer returns an event stream that yields incremental events as the
+LLM generates its response. The stream can be consumed event-by-event for
+real-time streaming or accumulated into a complete response message. A
+complete response message contains:
+
+| Field | Description |
+|-------|-------------|
+| content | Ordered list of content blocks (text, tool use, thinking) |
+| stop_reason | Why the model stopped: end_turn, tool_use, max_tokens |
+| usage | Token counts (input, output) |
+
+**Command-query table:**
+
+Since the Completer is stateless with a single query and no commands or
+creators, the standard command-query table is trivial:
+
+```
+              | complete
+--------------+-------------------------------------------
+(no commands) | —
+```
+
+The Completer has no commands because it has no mutable state. The
+interesting structure is in the request and response types, documented
+in the tables above.
+
+**Relates to:** S1.2 (Completer), S2.2 (Conversation Loop), S2.3 (Streaming),
+E2.1 (Anthropic Messages API), E2.2 (Anthropic Go SDK).
+
 ## Tool Use
 
 ### S2.4: Tool Registration
@@ -97,17 +169,19 @@ to manage message ordering or protocol compliance.
 
 ### S2.7: Transient Error Handling
 
-**Description:** The library-provided Completer implementation handles
-transient API errors (rate limits, network timeouts, server errors) with
-appropriate retry behavior.
+**Description:** Transient API errors (rate limits, network timeouts, server
+errors) are handled by the Anthropic Go SDK's built-in retry mechanism. The
+library-provided Completer delegates to the SDK without adding its own retry
+layer. The consuming application controls retry behavior by configuring the
+Anthropic client it provides (e.g., `option.WithMaxRetries()`).
 **Trigger:** Transient error response from the Anthropic API.
-**Inputs:** Error response.
-**Outputs:** Retried request, or propagated error if retries are exhausted.
-**Rules:** If the Anthropic Go SDK already provides retry behavior, the
-library-provided Completer defers to it rather than layering additional
-retries. Non-transient errors (authentication failures, invalid requests)
-are propagated immediately. Custom Completer implementations are responsible
-for their own error handling.
+**Inputs:** Error response from the SDK.
+**Outputs:** Either a successful response (if the SDK retried successfully)
+or a propagated error (if retries were exhausted or the error is non-transient).
+**Rules:** The library-provided Completer does not implement retry logic —
+it relies on the SDK's retry behavior. Non-transient errors (authentication
+failures, invalid requests) are propagated immediately. Custom Completer
+implementations are responsible for their own error handling.
 **Relates to:** S1.2 (Completer), E2.2 (Anthropic Go SDK).
 
 ## Progressive Capabilities

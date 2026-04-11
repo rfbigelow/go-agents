@@ -4,7 +4,7 @@
 
 | Milestone | Description | Depends On |
 |-----------|-------------|------------|
-| M1: Basic Conversation | Agent can perform simple LLM completions with streaming via the Completer interface. Conversation state is managed by the library. Tracing spans and structured logs are emitted for the agent run and LLM calls. | — |
+| M1: Basic Conversation | Agent can perform simple LLM completions with streaming via the Completer. Conversation state is managed by the library. Tracing spans and structured logs are emitted for the agent run and LLM calls. | — |
 | M2: Tool Use | Agent supports tool registration and the full conversation loop (tool dispatch, result handling, loop termination). Tracing spans and structured logs cover tool dispatch and execution. | M1 |
 | M3: Human-in-the-Loop | Agent can pause for human input/approval within a workflow. | M2 |
 | M4: Extended Thinking | Agent supports Anthropic's extended thinking feature. | M1 |

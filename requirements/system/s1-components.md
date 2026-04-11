@@ -16,16 +16,15 @@ composable and opt-in.
 
 ## S1.2: Completer
 
-**Purpose:** A Go interface that the Agent uses to get completions from the
-LLM. The interface abstracts LLM communication so the Agent depends only on
-the Completer contract, not on any specific SDK or client. The library provides
-a default implementation that wraps an Anthropic client created and owned by
-the consuming application.
-**Interacts with:** Agent (as its LLM communication interface), Anthropic Go
-SDK (E2.2) via the library-provided implementation.
-**Key properties:** Defined as a Go interface — consumers can provide
-alternative implementations. The library-provided implementation supports
-streaming responses and handles transient API errors (retries, rate limits).
+**Purpose:** The Agent's abstraction for LLM communication. The Completer is
+created from an Anthropic client provided by the consuming application and
+acts as a stateless Adapter — it receives a complete request (messages, tools,
+model configuration), bridges to the SDK, and returns a streaming response.
+**Interacts with:** Agent (as its LLM communication abstraction), Anthropic Go
+SDK (E2.2).
+**Key properties:** Stateless — holds a reference to the consumer-provided
+Anthropic client but maintains no state of its own. Delegates to the SDK,
+including the SDK's built-in transient error retry behavior.
 
 ## S1.3: Tool Registry
 

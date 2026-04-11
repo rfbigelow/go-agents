@@ -3,8 +3,8 @@
 ## System Architecture
 
 The library provides four components: an **Agent** (S1.1) that drives the
-conversation loop, a **Completer** (S1.2) interface that abstracts LLM
-communication (with a provided implementation for the Anthropic Go SDK), a
+conversation loop, a **Completer** (S1.2) that bridges to the Anthropic Go
+SDK for LLM communication, a
 **Tool Registry** (S1.3) for registering and dispatching tools, and managed
 **Conversation State** (S1.4). See S1 for details.
 
