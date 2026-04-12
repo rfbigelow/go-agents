@@ -82,9 +82,13 @@ Useful for complex tasks requiring multi-step reasoning.
 
 ### Human-in-the-Loop (HITL)
 
-A workflow pattern where the agent pauses execution to request input,
-approval, or correction from a human before continuing. Enables human
-oversight of autonomous agent behavior.
+A capability where individual tools are flagged as requiring human approval
+before execution. When the LLM requests a call to a HITL-flagged tool, the
+Tool Registry invokes an approval callback provided by the consuming
+application. The callback receives the tool call details and returns a
+binary approve/deny decision. On denial, an error result is sent back to
+the LLM so it can adapt. The approval callback blocks the agentic loop
+inline — `run` does not return mid-loop for HITL decisions.
 
 ### Memory Tool
 

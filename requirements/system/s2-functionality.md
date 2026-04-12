@@ -100,22 +100,42 @@ multiple turns (tool use), all intermediate messages are included.
 
 #### S2.8: Human-in-the-Loop
 
-**Description:** The Agent can pause execution and request input or approval
-from a human before continuing. This enables workflows where certain
-decisions require human judgment.
-**Trigger:** Agent-defined condition or tool that requires human input.
-**Relates to:** S2.2 (Agentic Loop), E6.1 (Application Controls Execution
-Flow).
+**Description:** Individual tools can be flagged as requiring human approval
+during registration (S2.4). When the LLM requests a call to a HITL-flagged
+tool, the Tool Registry invokes an approval callback before executing the
+tool. The callback receives the tool name and arguments and returns a binary
+decision: approve or deny.
 
-<!-- TODO: Define the HITL execution model. Current thinking: the Agent's run
-     method returns a response that indicates its type — either a final answer
-     to the user's request or a HITL request for further user input. This keeps
-     the execution model simple and leaves the application in control of the
-     interaction flow (consistent with E6.1). Need to determine:
-     - How the response type is represented (tagged union / enum + payload?)
-     - How the application resumes the conversation after providing HITL input
-     - Whether HITL responses carry structured metadata (e.g., what kind of
-       input is needed) or are free-form text from the LLM -->
+The approval callback is registered with the Tool Registry. The Tool Registry
+enforces that a callback is present if any HITL-flagged tools are registered
+(fail-fast at registration time rather than at runtime).
+
+The Agent does not know about HITL directly. It asks the Tool Registry to
+dispatch tool calls; the registry handles the approval gate internally.
+
+**Trigger:** The LLM requests a call to a tool flagged as requiring HITL
+approval.
+**Inputs:** Tool name and arguments, passed to the approval callback.
+**Outputs:** If approved, the tool executes normally and its result is
+returned. If denied, an error result indicating the user denied the action
+is sent back to the LLM.
+**Rules:**
+- On denial, the agentic loop continues — the LLM receives the denial as
+  an error tool result and can adapt (try a different approach, ask for
+  clarification, or produce a final response).
+- When a turn contains a mix of HITL and non-HITL tool calls, HITL callbacks
+  are invoked first for all HITL-flagged tools. After all approval decisions
+  are made, approved tools and non-HITL tools execute in parallel. Denied
+  tools receive error results without executing.
+- `run` always completes the agentic loop — HITL does not cause `run` to
+  return mid-loop. The callback blocks the agentic loop until the human
+  responds, consistent with how `run` blocks during LLM calls and tool
+  execution.
+- Plan-level HITL (approving a multi-step plan before execution) is an
+  application concern, not a library concern. Applications can implement
+  plan approval using a HITL-flagged tool (e.g., a "propose_plan" tool).
+**Relates to:** S2.4 (Tool Registration), S2.5 (Tool Dispatch), S1.3
+(Tool Registry), E6.1 (Application Controls Execution Flow).
 
 #### S2.9: Extended Thinking
 
@@ -296,14 +316,19 @@ implementations are responsible for their own error handling.
 
 **Description:** The consuming application registers tool implementations
 with the Tool Registry. Each tool has a name, description, input schema,
-and an execution function.
+an execution function, and an optional HITL flag indicating the tool
+requires human approval before execution (S2.8). The consuming application
+can also register an approval callback with the Tool Registry to handle
+HITL decisions.
 **Trigger:** Application setup, prior to creating the Agent.
-**Inputs:** Tool definition (name, description, input schema) and
-implementation function.
+**Inputs:** Tool definition (name, description, input schema, HITL flag)
+and implementation function. Optionally, an approval callback.
 **Outputs:** Tool is available in the registry for use by the Agent.
 **Rules:** Tool names must be unique within a Tool Registry. Tool definitions
-must conform to the format expected by the Anthropic tool-use protocol.
-**Relates to:** S1.3 (Tool Registry).
+must conform to the format expected by the Anthropic tool-use protocol. If
+any tool is registered with the HITL flag, the registry must have an approval
+callback registered — otherwise registration fails (fail-fast).
+**Relates to:** S1.3 (Tool Registry), S2.8 (HITL).
 
 ### S2.5: Tool Dispatch and Execution
 
@@ -313,11 +338,14 @@ The result is appended to the conversation as a tool result message.
 **Trigger:** LLM response containing a tool-use block.
 **Inputs:** Tool name and arguments from the LLM response.
 **Outputs:** Tool result appended to conversation state.
-**Rules:** All tool calls from a single LLM response execute in parallel.
-Unknown tool names result in an error tool result sent back to the LLM (not a
-crash). Tool execution errors are reported to the LLM as error results so it
-can decide how to proceed.
-**Relates to:** S1.3 (Tool Registry), S2.2 (Agentic Loop).
+**Rules:** When a turn contains tool calls, the Tool Registry first invokes
+the approval callback for any HITL-flagged tools (S2.8). After all approval
+decisions are made, approved tools and non-HITL tools execute in parallel.
+Denied tools receive error results without executing. Unknown tool names
+result in an error tool result sent back to the LLM (not a crash). Tool
+execution errors are reported to the LLM as error results so it can decide
+how to proceed.
+**Relates to:** S1.3 (Tool Registry), S2.2 (Agentic Loop), S2.8 (HITL).
 
 ## Conversation State (S1.4)
 

@@ -109,6 +109,42 @@ The parent's agentic loop continues.
 **Pass condition:** The nested spawn is rejected with an error. The sub-agent
 receives an error tool result and can continue its own loop.
 
+### S6.18: HITL Approval
+
+**Verifies:** S2.8, S2.5
+**Method:** Test with a HITL-flagged tool and an approval callback that
+returns approve. Mock API returns a tool-use request for the HITL tool.
+**Pass condition:** The approval callback is invoked with the correct tool
+name and arguments. The tool executes normally after approval. The tool
+result is sent back to the LLM.
+
+### S6.19: HITL Denial
+
+**Verifies:** S2.8, S2.5
+**Method:** Test with a HITL-flagged tool and an approval callback that
+returns deny. Mock API returns a tool-use request for the HITL tool.
+**Pass condition:** The tool does not execute. An error tool result
+indicating user denial is sent back to the LLM. The agentic loop
+continues — the LLM receives the denial and can respond.
+
+### S6.20: HITL Mixed Parallel Tool Calls
+
+**Verifies:** S2.8, S2.5
+**Method:** Test with a mix of HITL and non-HITL tools. Mock API returns
+a response requesting both in a single turn. Approval callback approves
+the HITL tool.
+**Pass condition:** The HITL callback is invoked before any tool executes.
+After approval, both tools execute in parallel. Results for both are sent
+back to the LLM.
+
+### S6.21: HITL Missing Callback Validation
+
+**Verifies:** S2.4, S2.8
+**Method:** Attempt to register a HITL-flagged tool with no approval
+callback on the Tool Registry.
+**Pass condition:** Registration fails with an error indicating that
+an approval callback is required when HITL-flagged tools are present.
+
 ## Non-Functional Verification
 
 ### S6.13: Platform Agnosticism
@@ -175,11 +211,11 @@ and structured logs are emitted during agent execution.
 | S2.1 | S6.1, S6.15 |
 | S2.2 | S6.1, S6.3, S6.4, S6.8, S6.15 |
 | S2.3 | S6.1, S6.15 |
-| S2.4 | S6.2, S6.15 |
-| S2.5 | S6.2, S6.5, S6.6, S6.7, S6.15 |
+| S2.4 | S6.2, S6.21, S6.15 |
+| S2.5 | S6.2, S6.5, S6.6, S6.7, S6.18, S6.19, S6.20, S6.15 |
 | S2.6 | S6.1, S6.15 |
 | S2.7 | S6.8, S6.9 |
-| S2.8 | <!-- TODO: Add when HITL execution model is defined --> |
+| S2.8 | S6.18, S6.19, S6.20, S6.21 |
 | S2.9 | <!-- TODO: Add when extended thinking is elaborated --> |
 | S2.10 | <!-- TODO: Add when deterministic logic is elaborated --> |
 | S2.11 | S6.10, S6.11, S6.12 |
