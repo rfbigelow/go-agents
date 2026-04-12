@@ -30,7 +30,7 @@ mocked API returns tool-use blocks, the Agent dispatches to the correct tool
 implementations and appends results to conversation state. Multiple tool calls
 in a single response execute in parallel.
 
-### S6.3: Conversation Loop Termination
+### S6.3: Agentic Loop Termination
 
 **Verifies:** S2.2
 **Method:** Test with mocked API responses that chain multiple tool-call turns
@@ -52,21 +52,21 @@ last completed turn.
 **Verifies:** S2.5, S4.2 (unknown tool)
 **Method:** Test with a mocked API response requesting a tool not in the registry.
 **Pass condition:** The Agent sends an error tool result back to the LLM. The
-conversation loop continues (no crash, no propagation to the consumer).
+agentic loop continues (no crash, no propagation to the consumer).
 
 ### S6.6: Tool Error Handling
 
 **Verifies:** S2.5, S4.2 (tool returns error)
 **Method:** Test with a tool implementation that returns an error.
 **Pass condition:** The error is converted to an error tool result sent back to
-the LLM. The conversation loop continues.
+the LLM. The agentic loop continues.
 
 ### S6.7: Tool Panic Recovery
 
 **Verifies:** S2.5, S4.2 (tool panics)
 **Method:** Test with a tool implementation that panics.
 **Pass condition:** The Agent recovers the panic, converts it to an error tool
-result, and continues the conversation loop. Other concurrent tool calls are
+result, and continues the agentic loop. Other concurrent tool calls are
 unaffected.
 
 ### S6.8: API Error Propagation
@@ -91,16 +91,16 @@ the error propagates to the consumer per S6.8.
 **Verifies:** S2.11, S4.3
 **Method:** Test with a tool that creates and runs a sub-agent using mocked API
 responses.
-**Pass condition:** The sub-agent runs its own conversation loop with its own
+**Pass condition:** The sub-agent runs its own agentic loop with its own
 conversation state. Its result is returned as a tool result to the parent agent.
-The parent's conversation loop continues.
+The parent's agentic loop continues.
 
 ### S6.11: Sub-Agent Failure Isolation
 
 **Verifies:** S2.11, S4.3 (sub-agent error, sub-agent panic)
 **Method:** Test with sub-agents that return errors and sub-agents that panic.
 **Pass condition:** Failures are converted to error tool results for the parent.
-The parent's conversation loop continues.
+The parent's agentic loop continues.
 
 ### S6.12: Sub-Agent Nesting Rejection
 

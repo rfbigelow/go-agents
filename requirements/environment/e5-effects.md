@@ -10,12 +10,12 @@ mediates SDK access. The library's API stability and release cadence become a
 factor in consumer application maintenance.
 **Who is affected:** Agent application developers who consume the library.
 
-### E5.2: Conversation Loop Management Is Delegated
+### E5.2: Agentic Loop Management Is Delegated
 
 **What changes:** Agent applications no longer implement their own agentic
-conversation loops.
-**How it changes:** The library manages the multi-turn LLM interaction cycle —
-sending messages, processing tool-use requests, executing tools, and determining
+loops.
+**How it changes:** The library manages the agentic loop — sending messages
+to the LLM, processing tool-use requests, executing tools, and determining
 when a response is ready. The application retains control of obtaining user input
 and initiating conversations; the library handles the loop internals.
 **Who is affected:** Agent application developers who consume the library.

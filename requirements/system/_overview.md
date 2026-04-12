@@ -3,14 +3,14 @@
 ## System Architecture
 
 The library provides four components: an **Agent** (S1.1) that drives the
-conversation loop, a **Completer** (S1.2) that bridges to the Anthropic Go
+agentic loop, a **Completer** (S1.2) that bridges to the Anthropic Go
 SDK for LLM communication, a
 **Tool Registry** (S1.3) for registering and dispatching tools, and managed
 **Conversation State** (S1.4). See S1 for details.
 
 ## Key Functionality
 
-The Agent manages the conversation loop — sending messages to the LLM,
+The Agent manages the agentic loop — sending messages to the LLM,
 dispatching tool calls in parallel, and repeating until a final response is
 ready. Capabilities are progressive: a minimal Agent does simple completions;
 tool use, HITL, extended thinking, deterministic logic, and sub-agent composition

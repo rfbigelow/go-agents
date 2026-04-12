@@ -17,7 +17,7 @@ These form the core library — an agent that can hold conversations, use tools,
 handle errors, and provide observability.
 
 - **S2.1** — Agent creation and configuration
-- **S2.2** — Conversation loop execution
+- **S2.2** — Agentic loop execution
 - **S2.3** — Streaming responses
 - **S2.4** — Tool registration
 - **S2.5** — Tool dispatch and execution
@@ -48,7 +48,7 @@ No requirements currently at this level.
 
 ## Ordering Constraints
 
-- S2.2 (conversation loop) depends on S2.1 (agent creation), S2.6
+- S2.2 (agentic loop) depends on S2.1 (agent creation), S2.6
   (conversation state), and S2.3 (streaming).
 - S2.5 (tool dispatch) depends on S2.4 (tool registration).
 - S2.2 depends on S2.5 for tool-using agents, but a no-tool agent can run
@@ -58,6 +58,6 @@ No requirements currently at this level.
 - S2.11 (sub-agent composition) depends on S2.2 and S2.5 (a sub-agent is
   invoked as a tool).
 - S2.12 (tracing) and S2.13 (logging) are cross-cutting: they apply to
-  S2.2 (conversation loop), S2.5 (tool dispatch), and S2.11 (sub-agent
+  S2.2 (agentic loop), S2.5 (tool dispatch), and S2.11 (sub-agent
   composition). Instrumentation for each component is added when that
   component is implemented.

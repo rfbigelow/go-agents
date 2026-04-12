@@ -26,7 +26,7 @@ stable API** (E4.3). See E4 for details.
 
 Introducing the library has two main environmental effects: consumer applications
 take on a **dependency** on go-agents and transitively on the SDK (E5.1), and
-**conversation loop management is delegated** to the library (E5.2). Three
+**agentic loop management is delegated** to the library (E5.2). Three
 invariants must hold: the **application controls execution flow** (E6.1), all
 API communication is **protocol-compliant** (E6.2), and the **consumer owns its
 resources** (E6.3). See E5 and E6 for details.

@@ -26,7 +26,7 @@ autonomous workflow.
 
 1. The developer creates an Agent and registers one or more tools.
 2. The developer sends a user message describing a task.
-3. The Agent enters the conversation loop: it sends the conversation to the LLM,
+3. The Agent enters the agentic loop: it sends the conversation to the LLM,
    the LLM requests tool calls, the Agent dispatches them, and repeats until the
    LLM produces a final response.
 4. The developer receives the final response with the task completed.

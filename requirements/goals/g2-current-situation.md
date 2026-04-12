@@ -3,7 +3,7 @@
 ## Current Processes
 
 Agent projects are built directly against vendor LLM APIs (e.g., Anthropic,
-OpenAI). Each project implements its own conversation loop, tool handling,
+OpenAI). Each project implements its own agentic loop, tool handling,
 error management, and other agent infrastructure from scratch.
 
 ## Pain Points

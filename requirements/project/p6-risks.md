@@ -50,7 +50,7 @@ them?"
 **Impact:** Medium
 **Description:** The human-in-the-loop execution model (S2.8) is still
 undefined. It could complicate the core Agent API if it requires a fundamentally
-different return type or control flow from normal conversation loop execution.
+different return type or control flow from normal agentic loop execution.
 **Affected areas:** S2.2, S2.8, S3
 **Mitigation:** Design HITL to reuse the existing execution model — the Agent
 returns a tagged response indicating whether it is a final answer or a request

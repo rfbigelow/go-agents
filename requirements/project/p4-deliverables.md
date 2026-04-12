@@ -36,13 +36,13 @@ demonstrate its capabilities and validate its API through real use
 reference for consumers.
 **Audience:** Library developers, potential future users.
 **Acceptance:** The example runs end-to-end, exercises the library's core
-features (at minimum: conversation loop, tool use, streaming), and
+features (at minimum: agentic loop, tool use, streaming), and
 demonstrates idiomatic usage.
 
 ## Major Tasks
 
 - Design and implement core abstractions (Agent, Completer, Tool interface)
-- Implement conversation loop with streaming
+- Implement agentic loop with streaming
 - Implement tool registration and dispatch
 - Add progressive capabilities (HITL, extended thinking, deterministic logic)
 - Build example application

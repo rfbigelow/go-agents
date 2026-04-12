@@ -12,7 +12,7 @@ use tools and pursue goals across multiple turns.
 ### Harness
 
 The reusable runtime infrastructure that manages an agent's execution: the
-conversation loop, tool dispatch, error handling, and interaction with the
+agentic loop, tool dispatch, error handling, and interaction with the
 LLM API. The harness is what this library provides; agent-specific behavior
 is layered on top of it.
 
@@ -49,12 +49,22 @@ both the conversation history and the new response. When the conversation
 history exceeds the context window, the API returns an error and the consuming
 application must apply a strategy such as compaction or truncation to continue.
 
+### Agentic Loop
+
+The inner runtime cycle within a single Agent run: send the conversation to
+the LLM, receive a response, check if the response contains tool-use
+requests, dispatch tools, append results, and repeat until the LLM produces
+a final (non-tool-use) response. The agentic loop is driven by the Agent
+and executes within a single call to `run`. Distinguished from the
+conversation loop, which is the outer cycle driven by the user.
+
 ### Conversation Loop
 
-The core runtime cycle of an agent: send messages to the LLM, receive a
-response, check if the response contains tool-use requests, execute tools,
-append results, and repeat until the LLM produces a final (non-tool-use)
-response.
+The outer cycle of a multi-turn conversation: the user sends a message, the
+Agent runs (executing the agentic loop) and produces a response, the user
+sends the next message, and so on. The conversation loop is driven by the
+consuming application, not by the library. Each iteration of the
+conversation loop corresponds to one call to `run`.
 
 ### Conversation State
 
@@ -93,7 +103,7 @@ configuration.
 ### Sub-Agent
 
 An agent that is started by another agent as part of its workflow. A sub-agent
-is a full conversation loop in its own right — with its own conversation state and
+is a full agentic loop in its own right — with its own conversation state and
 potentially its own tools — but is initiated and managed by a parent agent.
 Sub-agent composition is a form of tool use from the parent's perspective, but
 represents an independent agentic workflow.

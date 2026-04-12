@@ -4,34 +4,35 @@
 
 ### S2.1: Agent Creation and Configuration
 
-**Description:** The consuming application creates an Agent and progressively
-configures its capabilities. A minimally configured Agent can perform simple
-LLM completions. Capabilities (tool use, human-in-the-loop, extended thinking,
-deterministic logic) are added incrementally.
+**Description:** The consuming application creates an Agent by providing a
+Completer, a Tool Registry, and configuration. A minimally configured Agent
+(with an empty Tool Registry) performs simple LLM completions. Capabilities
+(tool use, human-in-the-loop, extended thinking, deterministic logic) are
+added incrementally.
 **Trigger:** Application initialization.
-**Inputs:** Completer instance, optional configuration (system prompt, model
-parameters, capabilities).
+**Inputs:** Completer instance, Tool Registry instance, configuration (system
+prompt, model, max tokens, max iterations, optional parameters).
 **Outputs:** A configured Agent ready to run.
-**Rules:** An Agent with no tools registered behaves as a simple chat
-completion client. Adding tools enables the agentic conversation loop.
+**Rules:** An Agent whose Tool Registry is empty behaves as a simple chat
+completion client. A Tool Registry with registered tools enables the agentic
+loop.
 **Relates to:** G3.1 (reusability), E3.3 (platform agnosticism).
 
-### S2.2: Conversation Loop Execution
+### S2.2: Agentic Loop Execution
 
 **Description:** The Agent sends the current conversation state to the LLM
 and processes the response. If the response contains tool-use requests, the
 Agent dispatches them via the Tool Registry, appends the results to the
 conversation, and repeats. The loop continues until the LLM produces a
 final response with no tool-use requests.
-**Trigger:** The consuming application initiates a run (e.g., by providing
-a user message).
+**Trigger:** The consuming application calls `run` with a user message.
 **Inputs:** User message, current conversation state.
 **Outputs:** Final assistant response (streamed), updated conversation state.
 **Rules:** All tool calls within a single LLM response are executed in parallel
 before the next LLM turn. The turn completes when all tool calls (including
 sub-agent invocations) finish. The loop must terminate (guard against infinite
-tool-call cycles). The conversation loop is sequential at the turn level — a new
-user message cannot be processed while a turn is in progress.
+tool-call cycles). The agentic loop is sequential at the turn level — a new
+`run` cannot be initiated while a run is in progress.
 **Relates to:** S1.1 (Agent), S1.4 (Conversation State), S2.5 (Tool Dispatch),
 S2.11 (Sub-Agent Composition).
 
@@ -39,13 +40,59 @@ S2.11 (Sub-Agent Composition).
 
 **Description:** LLM responses are streamed to the consuming application as
 they are generated, rather than waiting for the full response.
-**Trigger:** Each LLM response during conversation loop execution.
+**Trigger:** Each LLM response during agentic loop execution.
 **Inputs:** Streaming response from the Completer.
 **Outputs:** Incremental content delivered to the consuming application via
 a callback or channel mechanism.
 **Rules:** Streaming is the default mode. The consuming application must be
 able to process partial responses.
 **Relates to:** S1.2 (Completer), G3.1 (reusability).
+
+### Agent ADT Stub
+
+```
+Types: AGENT
+
+Creators:
+  new_agent: COMPLETER × TOOL_REGISTRY × CONFIG → AGENT
+
+Commands:
+  run: AGENT × MESSAGE → AGENT
+
+Queries:
+  conversation: AGENT → CONVERSATION_STATE
+```
+
+The Agent's mutable state is its conversation history. Each `run` appends
+the user message, drives the agentic loop (calling the Completer,
+dispatching tools, repeating as needed), appends all resulting messages
+(assistant responses, tool results), and returns the updated Agent. The
+response is delivered incrementally via the event stream during the run.
+
+**Configuration (CONFIG):**
+
+| Parameter | Description |
+|-----------|-------------|
+| system | System prompt |
+| model | Which model to use |
+| max_tokens | Maximum tokens per LLM response |
+| max_iterations | Maximum agentic loop iterations before terminating (loop guard) |
+| temperature | Sampling temperature (optional) |
+| thinking | Extended thinking configuration (optional) |
+
+**Command-query table:**
+
+```
+              | conversation
+--------------+---------------------------------------------------------------
+new_agent     | empty (no messages)
+run(a, msg)   | conversation(a) + user message + agentic loop messages
+```
+
+`run` extends the conversation with the user message and all messages
+produced during the agentic loop — assistant responses, tool-use
+requests, tool results — in protocol-correct order. If the loop involves
+multiple turns (tool use), all intermediate messages are included.
 
 ### Progressive Capabilities
 
@@ -57,7 +104,7 @@ able to process partial responses.
 from a human before continuing. This enables workflows where certain
 decisions require human judgment.
 **Trigger:** Agent-defined condition or tool that requires human input.
-**Relates to:** S2.2 (Conversation Loop), E6.1 (Application Controls Execution
+**Relates to:** S2.2 (Agentic Loop), E6.1 (Application Controls Execution
 Flow).
 
 <!-- TODO: Define the HITL execution model. Current thinking: the Agent's run
@@ -83,7 +130,7 @@ allowing the model to reason through complex problems before responding.
 steps within a workflow — e.g., validation, transformation, or routing
 that does not require LLM inference.
 **Trigger:** Agent configuration includes deterministic steps.
-**Relates to:** S2.2 (Conversation Loop).
+**Relates to:** S2.2 (Agentic Loop).
 
 #### S2.11: Sub-Agent Composition
 
@@ -102,7 +149,7 @@ of one). Each sub-agent has its own conversation state, independent of the
 parent's. Each sub-agent produces its own response stream, separate from the
 parent's stream and from other sub-agents' streams, so that concurrent output
 can be rendered independently.
-**Relates to:** S2.2 (Conversation Loop), S2.3 (Streaming), S2.5 (Tool
+**Relates to:** S2.2 (Agentic Loop), S2.3 (Streaming), S2.5 (Tool
 Dispatch), G5.4 (Composing Agents with Sub-Agents).
 
 ### Observability
@@ -129,7 +176,7 @@ OTEL SDK, choosing an exporter, and managing the tracer provider lifecycle.
 Span names follow a consistent naming convention (e.g., `agent.run`,
 `agent.llm_call`, `agent.tool.<name>`, `agent.sub_agent.<name>`).
 **Relates to:** E2.3 (OTEL Trace API), E3.5 (Consumer Resource Control),
-E6.1 (Application Controls Execution Flow), S2.2 (Conversation Loop),
+E6.1 (Application Controls Execution Flow), S2.2 (Agentic Loop),
 S2.5 (Tool Dispatch), S2.11 (Sub-Agent Composition).
 
 #### S2.13: Structured Logging
@@ -223,7 +270,7 @@ The Completer has no commands because it has no mutable state. The
 interesting structure is in the request and response types, documented
 in the tables above.
 
-**Relates to:** S1.2 (Completer), S2.2 (Conversation Loop), S2.3 (Streaming),
+**Relates to:** S1.2 (Completer), S2.2 (Agentic Loop), S2.3 (Streaming),
 E2.1 (Anthropic Messages API), E2.2 (Anthropic Go SDK).
 
 ### S2.7: Transient Error Handling
@@ -248,14 +295,14 @@ implementations are responsible for their own error handling.
 ### S2.4: Tool Registration
 
 **Description:** The consuming application registers tool implementations
-with the Agent. Each tool has a name, description, input schema, and an
-execution function.
-**Trigger:** Agent configuration, prior to running.
+with the Tool Registry. Each tool has a name, description, input schema,
+and an execution function.
+**Trigger:** Application setup, prior to creating the Agent.
 **Inputs:** Tool definition (name, description, input schema) and
 implementation function.
-**Outputs:** Tool is available for use by the LLM.
-**Rules:** Tool names must be unique within an Agent. Tool definitions must
-conform to the format expected by the Anthropic tool-use protocol.
+**Outputs:** Tool is available in the registry for use by the Agent.
+**Rules:** Tool names must be unique within a Tool Registry. Tool definitions
+must conform to the format expected by the Anthropic tool-use protocol.
 **Relates to:** S1.3 (Tool Registry).
 
 ### S2.5: Tool Dispatch and Execution
@@ -270,7 +317,7 @@ The result is appended to the conversation as a tool result message.
 Unknown tool names result in an error tool result sent back to the LLM (not a
 crash). Tool execution errors are reported to the LLM as error results so it
 can decide how to proceed.
-**Relates to:** S1.3 (Tool Registry), S2.2 (Conversation Loop).
+**Relates to:** S1.3 (Tool Registry), S2.2 (Agentic Loop).
 
 ## Conversation State (S1.4)
 
@@ -280,7 +327,7 @@ can decide how to proceed.
 Messages are appended as the conversation progresses (user messages, assistant
 responses, tool results). The library enforces correct message ordering and
 tool-use protocol conventions.
-**Trigger:** Each turn in the conversation loop.
+**Trigger:** Each turn in the agentic loop.
 **Inputs:** New messages generated during the conversation.
 **Outputs:** Updated conversation state available for the next LLM call.
 **Rules:** The library provides conversation state management with sensible

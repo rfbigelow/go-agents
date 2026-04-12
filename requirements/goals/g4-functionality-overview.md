@@ -8,7 +8,7 @@ in Go while focusing on their application logic.
 **G4.1: Run agentic conversations.** The developer provides a prompt and the
 library manages the back-and-forth with the LLM — including multi-turn tool
 use — until the LLM produces a final response. The developer does not need to
-manage the conversation loop themselves.
+manage the agentic loop themselves.
 
 **G4.2: Stream responses.** The library delivers LLM output incrementally as it
 is generated, so applications can display or process partial results without

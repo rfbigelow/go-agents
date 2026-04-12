@@ -3,7 +3,7 @@
 ## Purpose
 
 Provide a reusable Go library for building LLM-based agents. The library
-captures common agent development patterns — conversation loop management,
+captures common agent development patterns — agentic loop management,
 tool dispatch, streaming, and progressive capability addition — so that new
 agent projects can focus on domain-specific behavior rather than
 infrastructure.
@@ -19,7 +19,7 @@ infrastructure.
 ## System Overview
 
 go-agents provides four core components: an Agent that manages the
-conversation loop, a Completer that bridges to the Anthropic Go SDK for LLM
+agentic loop, a Completer that bridges to the Anthropic Go SDK for LLM
 communication, a Tool Registry
 for registering and dispatching tools, and managed Conversation State. The Agent is designed for progressive
 capability addition — from simple completions to tool use, human-in-the-loop,

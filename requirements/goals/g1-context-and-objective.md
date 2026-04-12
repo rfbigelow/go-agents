@@ -9,7 +9,7 @@ systems where an LLM drives autonomous multi-step workflows.
 ## Why This Project Is Needed
 
 Each new agent project currently requires rebuilding common infrastructure from
-scratch: API client setup, conversation loop management, tool dispatch, and
+scratch: API client setup, agentic loop management, tool dispatch, and
 other recurring patterns. There is no reusable foundation that captures current
 best practices for agent development in Go.
 

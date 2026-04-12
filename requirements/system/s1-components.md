@@ -3,7 +3,7 @@
 ## S1.1: Agent
 
 **Purpose:** The central runtime that drives an agentic workflow. Manages the
-conversation loop, coordinates tool execution, and handles interaction with
+agentic loop, coordinates tool execution, and handles interaction with
 the LLM. Designed for progressive capability addition — a minimal Agent
 performs simple completions; capabilities such as tool use, human-in-the-loop
 interaction, extended thinking, and deterministic logic are layered on
