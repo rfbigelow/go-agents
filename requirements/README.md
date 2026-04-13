@@ -36,7 +36,8 @@ with distributed traces (via OpenTelemetry) and structured logs (via slog).
 
 ## Project Status
 
-Requirements gathering in progress. No implementation yet.
+M1 (Basic Conversation) implemented. Requirements continue to evolve
+alongside implementation.
 
 ## How to Read These Requirements
 
