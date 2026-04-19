@@ -22,6 +22,30 @@ A function or capability made available to the agent (via the LLM's tool-use
 protocol) that allows it to take actions beyond generating text — e.g.,
 reading files, making API calls, or executing commands.
 
+### Tool Definition
+
+The library's description of a tool as registered in the Tool Registry:
+the name used by the LLM to invoke it, a description, an input schema
+conforming to the Anthropic tool-use protocol (using the SDK's native
+schema type per E2.2), an optional HITL flag, and the execution function.
+Distinguished from a Tool Call (the LLM's invocation) and a Tool Result
+(the dispatched response).
+
+### Tool Call
+
+A request from the LLM to invoke a tool, as delivered by the Anthropic
+tool-use protocol (E2.1). Carries the tool name and the arguments as
+produced by the model. The Tool Registry dispatches tool calls to the
+registered implementation.
+
+### Tool Result
+
+The response to a Tool Call, fed back to the LLM in the subsequent
+conversation turn. A successful result carries the tool's output; an
+error result carries an error indication (from an execution failure, a
+recovered panic, an unknown tool name, or a HITL denial) so the LLM can
+adapt.
+
 ### Agentic Spectrum
 
 The range of agent sophistication, from simple single-turn LLM completions
@@ -89,6 +113,13 @@ application. The callback receives the tool call details and returns a
 binary approve/deny decision. On denial, an error result is sent back to
 the LLM so it can adapt. The approval callback blocks the agentic loop
 inline — `run` does not return mid-loop for HITL decisions.
+
+### Approval Callback
+
+The function registered with the Tool Registry that decides whether a
+HITL-flagged Tool Call may proceed. Receives the tool name and arguments
+and returns a binary approve/deny decision. Blocks the agentic loop
+inline until the decision is made. See Human-in-the-Loop (HITL).
 
 ### Memory Tool
 

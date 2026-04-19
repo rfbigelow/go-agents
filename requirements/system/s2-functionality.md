@@ -325,9 +325,11 @@ HITL decisions.
 and implementation function. Optionally, an approval callback.
 **Outputs:** Tool is available in the registry for use by the Agent.
 **Rules:** Tool names must be unique within a Tool Registry. Tool definitions
-must conform to the format expected by the Anthropic tool-use protocol. If
-any tool is registered with the HITL flag, the registry must have an approval
-callback registered — otherwise registration fails (fail-fast).
+must conform to the format expected by the Anthropic tool-use protocol; the
+library's tool definition wraps the Anthropic Go SDK's native input-schema
+type (E2.2) rather than defining its own schema representation (see S3.2).
+If any tool is registered with the HITL flag, the registry must have an
+approval callback registered — otherwise registration fails (fail-fast).
 **Relates to:** S1.3 (Tool Registry), S2.8 (HITL).
 
 ### S2.5: Tool Dispatch and Execution
@@ -344,8 +346,63 @@ decisions are made, approved tools and non-HITL tools execute in parallel.
 Denied tools receive error results without executing. Unknown tool names
 result in an error tool result sent back to the LLM (not a crash). Tool
 execution errors are reported to the LLM as error results so it can decide
-how to proceed.
+how to proceed. Errors are isolated per tool call: a failure in one parallel
+tool does not cancel its siblings — each call in the batch produces its own
+result (success or error) independently. Panics in tool implementations are
+recovered and reported as error tool results, with details logged (S2.13).
+Tool executions inherit the `context.Context` of the enclosing `run`; the
+library does not impose per-tool timeouts, leaving lifecycle control to the
+consuming application.
 **Relates to:** S1.3 (Tool Registry), S2.2 (Agentic Loop), S2.8 (HITL).
+
+### Tool Registry ADT Stub
+
+```
+Types: TOOL_REGISTRY
+
+Creators:
+  new_registry → TOOL_REGISTRY
+
+Commands:
+  register: TOOL_REGISTRY × TOOL_DEFINITION → TOOL_REGISTRY
+  set_approval_callback: TOOL_REGISTRY × APPROVAL_CALLBACK → TOOL_REGISTRY
+
+Queries:
+  definitions: TOOL_REGISTRY → LIST[TOOL_DEFINITION]
+  dispatch: TOOL_REGISTRY × TOOL_CALL × CONTEXT → TOOL_RESULT
+
+Preconditions:
+  register(r, t): ¬hitl(t) ∨ has_approval_callback(r)
+```
+
+The Tool Registry is effectively immutable after setup: the consuming
+application registers tools and (optionally) an approval callback during
+application initialization, then hands the registry to the Agent. `dispatch`
+is modeled as a query because it does not mutate the registry itself — any
+side effects it produces are attributable to the invoked tool's
+implementation, not to the registry. The precondition on `register` encodes
+the fail-fast rule from S2.4: a HITL-flagged tool may only be registered
+once an approval callback is in place.
+
+TOOL_DEFINITION and APPROVAL_CALLBACK are library-defined concepts with
+glossary entries in E1. TOOL_CALL and TOOL_RESULT are Anthropic
+tool-use-protocol types (E2.1) referenced as previous types; they have
+glossary entries for readability but are not themselves specified by this
+library. CONTEXT is the Go `context.Context` previous type carrying
+cancellation and OTEL span propagation.
+
+**Command-query table:**
+
+```
+                             | definitions                    | dispatch(r, call, ctx)
+-----------------------------+--------------------------------+----------------------------------
+new_registry                 | empty                          | error tool result (unknown tool)
+register(r, t)               | definitions(r) appended with t | if call.name = t.name: execute t (HITL-gated if flagged); otherwise dispatch(r, call, ctx)
+set_approval_callback(r, cb) | definitions(r) (no change)     | dispatch(r, call, ctx), but HITL approvals now route through cb
+```
+
+**Relates to:** S1.3 (Tool Registry), S2.4 (Tool Registration), S2.5 (Tool
+Dispatch), S2.8 (HITL).
 
 ## Conversation State (S1.4)
 
