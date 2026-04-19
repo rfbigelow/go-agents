@@ -57,3 +57,11 @@ is in `changes/`.
 
 For a quick orientation, read this file and the four `_overview.md` files.
 For detail on any dimension, read the relevant chapter files.
+
+## Acknowledgment
+
+The PEGS structure used here derives from Bertrand Meyer's requirements
+engineering work, particularly *Handbook of Requirements and Business
+Analysis* (Springer, 2022). The application in this repository is a
+personal synthesis adapted to a small, single-developer library project
+and should not be taken as an endorsed or canonical use of the method.

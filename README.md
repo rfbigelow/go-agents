@@ -17,6 +17,20 @@ Core components:
 - **Tool Registry** -- manages tool definitions and dispatch
 - **Conversation State** -- maintains message history across turns
 
+## Why This Exists
+
+go-agents is both a working library and a deliberate exercise in applying
+requirements engineering rigor to agent development. The code is intended
+to be useful on its own terms, but the project is also an experiment in
+whether a disciplined, PEGS-structured requirements process produces
+better design decisions than jumping straight to implementation — a
+question that feels especially sharp for LLM-based systems, where the
+problem space is fluid and conventions are still forming.
+
+Readers interested in the methodology rather than the API should start
+with [requirements/README.md](requirements/README.md), which documents
+the PEGS structure used here and links to the four requirements books.
+
 ## Quick Start
 
 ```go
