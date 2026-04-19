@@ -10,6 +10,12 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
+// defaultMaxIterations caps the agentic loop when Config.MaxIterations is
+// zero (the Go zero value). A small finite cap keeps misconfigured demos
+// from looping forever while remaining generous enough for typical tool
+// workflows.
+const defaultMaxIterations = 16
+
 // Agent manages the agentic loop, coordinating LLM communication via the
 // Completer, tool dispatch via the ToolRegistry, and conversation history
 // via ConversationState.
@@ -47,42 +53,95 @@ func (a *Agent) Run(ctx context.Context, message string, handler EventHandler) e
 		attribute.String("agent.model", string(a.config.Model)),
 	)
 	var runErr error
-	defer func() { endSpan(span, runErr) }()
+	var turns int
+	defer func() {
+		span.SetAttributes(attribute.Int("agent.turn_count", turns))
+		endSpan(span, runErr)
+	}()
 
 	a.log.InfoContext(ctx, "run started",
 		logArgs(ctx, "model", string(a.config.Model))...,
 	)
 
-	// Append user message to conversation
 	a.conversation.Append(anthropic.NewUserMessage(anthropic.NewTextBlock(message)))
 
-	// Build the completion request
-	req := a.buildRequest()
-
-	// Call the Completer
-	response, err := a.complete(ctx, req, handler)
-	if err != nil {
-		// Roll back the user message on error
-		a.conversation.Rollback(1)
-		runErr = err
-		a.log.ErrorContext(ctx, "run failed",
-			logArgs(ctx, "error", err.Error())...,
-		)
-		return fmt.Errorf("agent run: %w", err)
+	maxIter := a.config.MaxIterations
+	if maxIter <= 0 {
+		maxIter = defaultMaxIterations
 	}
 
-	// Append assistant response to conversation
-	a.conversation.Append(response.ToParam())
+	for turn := 0; turn < maxIter; turn++ {
+		turns = turn + 1
+		if err := ctx.Err(); err != nil {
+			runErr = err
+			return fmt.Errorf("agent run: %w", err)
+		}
 
-	a.log.InfoContext(ctx, "run completed",
-		logArgs(ctx,
-			"stop_reason", string(response.StopReason),
-			"input_tokens", response.Usage.InputTokens,
-			"output_tokens", response.Usage.OutputTokens,
-		)...,
+		req := a.buildRequest()
+		response, err := a.complete(ctx, req, handler, turn)
+		if err != nil {
+			if turn == 0 {
+				a.conversation.Rollback(1)
+			}
+			runErr = err
+			a.log.ErrorContext(ctx, "run failed",
+				logArgs(ctx, "turn", turn, "error", err.Error())...,
+			)
+			return fmt.Errorf("agent run: %w", err)
+		}
+
+		a.conversation.Append(response.ToParam())
+
+		if response.StopReason != anthropic.StopReasonToolUse {
+			a.log.InfoContext(ctx, "run completed",
+				logArgs(ctx,
+					"stop_reason", string(response.StopReason),
+					"turn_count", turns,
+					"input_tokens", response.Usage.InputTokens,
+					"output_tokens", response.Usage.OutputTokens,
+				)...,
+			)
+			return nil
+		}
+
+		calls := extractToolCalls(response)
+		if len(calls) == 0 {
+			// Defensive: stop_reason=tool_use without tool_use blocks.
+			// Treat as final.
+			return nil
+		}
+
+		results := a.registry.dispatch(ctx, calls, a.log)
+		blocks := make([]anthropic.ContentBlockParamUnion, len(results))
+		for i, r := range results {
+			blocks[i] = anthropic.NewToolResultBlock(r.ID, r.Content, r.IsError)
+		}
+		a.conversation.Append(anthropic.NewUserMessage(blocks...))
+	}
+
+	runErr = ErrMaxIterations
+	a.log.ErrorContext(ctx, "run failed",
+		logArgs(ctx, "turn_count", turns, "error", runErr.Error())...,
 	)
+	return fmt.Errorf("agent run: %w", ErrMaxIterations)
+}
 
-	return nil
+// extractToolCalls scans the accumulated assistant message for tool_use
+// content blocks and returns their decoded form. Reads the union fields
+// directly so test-constructed messages (which lack JSON.raw) work too.
+func extractToolCalls(msg anthropic.Message) []ToolCall {
+	var calls []ToolCall
+	for _, block := range msg.Content {
+		if block.Type != "tool_use" {
+			continue
+		}
+		calls = append(calls, ToolCall{
+			ID:    block.ID,
+			Name:  block.Name,
+			Input: block.Input,
+		})
+	}
+	return calls
 }
 
 // buildRequest constructs a CompletionRequest from the Agent's config
@@ -113,16 +172,17 @@ func (a *Agent) buildRequest() CompletionRequest {
 
 // complete calls the Completer and streams events to the handler.
 // Returns the accumulated Message on success.
-func (a *Agent) complete(ctx context.Context, req CompletionRequest, handler EventHandler) (anthropic.Message, error) {
+func (a *Agent) complete(ctx context.Context, req CompletionRequest, handler EventHandler, turn int) (anthropic.Message, error) {
 	ctx, span := startSpan(ctx, "agent.llm_call",
 		attribute.String("agent.model", string(req.Model)),
 		attribute.Int("agent.message_count", len(req.Messages)),
+		attribute.Int("agent.turn", turn),
 	)
 	var callErr error
 	defer func() { endSpan(span, callErr) }()
 
 	a.log.DebugContext(ctx, "llm call started",
-		logArgs(ctx, "message_count", len(req.Messages))...,
+		logArgs(ctx, "message_count", len(req.Messages), "turn", turn)...,
 	)
 
 	stream, err := a.completer.Complete(ctx, req)
@@ -145,7 +205,6 @@ func (a *Agent) complete(ctx context.Context, req CompletionRequest, handler Eve
 
 	msg := stream.Message()
 
-	// Send done event
 	if handler != nil {
 		handler(Event{Type: EventDone})
 	}
@@ -154,6 +213,7 @@ func (a *Agent) complete(ctx context.Context, req CompletionRequest, handler Eve
 		logArgs(ctx,
 			"stop_reason", string(msg.StopReason),
 			"output_tokens", msg.Usage.OutputTokens,
+			"turn", turn,
 		)...,
 	)
 

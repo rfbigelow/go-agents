@@ -61,20 +61,24 @@ go get github.com/rfbigelow/go-agents
 
 Requires Go 1.25+ and an Anthropic API key.
 
-## Running the Example
+## Running the Examples
 
 ```
 export ANTHROPIC_API_KEY=sk-ant-...
-go run ./examples/chat/
+go run ./examples/chat/       # basic streaming chat
+go run ./examples/tool-use/   # tool use: current time + calculator
 ```
 
 ## Project Status
 
-M1 (Basic Conversation) is implemented: streaming completions, conversation
-state management, and observability (OTEL tracing + slog logging).
+M1 (Basic Conversation) and M2 (Tool Use) are implemented: streaming
+completions, conversation state management, tool registration, parallel
+tool dispatch with HITL-ready approval gate, and observability (OTEL
+tracing + slog logging) across LLM calls, tool-dispatch batches, and
+individual tool executions.
 
-Planned milestones: Tool Use (M2), Human-in-the-Loop (M3), Extended
-Thinking (M4), Deterministic Logic (M5), Example Application (M6).
+Planned milestones: Human-in-the-Loop (M3), Extended Thinking (M4),
+Deterministic Logic (M5), Example Application (M6).
 
 See [requirements/](requirements/README.md) for the full PEGS requirements.
 
