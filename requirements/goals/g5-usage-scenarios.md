@@ -63,6 +63,29 @@ sub-agents.
    completion and returns its result.
 4. The parent agent continues its workflow using the sub-agent's result.
 
+## G5.6: Agent with Tool-Level Human Approval
+
+**Actor:** Library consumer (G7.2)
+
+**Goal:** Build an agent where certain tools — typically destructive,
+irreversible, or privileged — require human approval before the LLM is allowed
+to execute them.
+
+**Steps:**
+
+1. The developer creates an Agent and registers tools, flagging one or more as
+   requiring human approval. The developer registers an approval callback with
+   the Tool Registry.
+2. The developer sends a user message describing a task that may require a
+   flagged tool.
+3. When the LLM requests a flagged tool during the agentic loop, the approval
+   callback is invoked with the tool name and arguments. The developer's
+   application surfaces the request to a human, who decides approve or deny.
+4. On approval, the tool executes and the loop continues. On denial, the LLM
+   receives a denial result and adapts — trying a different approach, asking
+   for clarification, or producing a final response.
+5. The developer receives the final response.
+
 ## G5.5: Agent Reuse Across Conversations (Future)
 
 **Actor:** Library consumer (G7.2)

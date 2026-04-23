@@ -145,6 +145,17 @@ callback on the Tool Registry.
 **Pass condition:** Registration fails with an error indicating that
 an approval callback is required when HITL-flagged tools are present.
 
+### S6.22: HITL Callback Panic Propagation
+
+**Verifies:** S2.8, S4.5
+**Method:** Test with a HITL-flagged tool and an approval callback that
+panics. Mock API returns a tool-use request for the HITL tool.
+**Pass condition:** The Agent does not recover the panic. `run` returns an
+error representing the panic. Conversation state is preserved up to the turn
+before the callback invocation — the partial turn (user message and LLM
+tool-use response) is not retained. Log output includes the panic details
+(per S2.13).
+
 ## Non-Functional Verification
 
 ### S6.13: Platform Agnosticism
@@ -215,7 +226,7 @@ and structured logs are emitted during agent execution.
 | S2.5 | S6.2, S6.5, S6.6, S6.7, S6.18, S6.19, S6.20, S6.15 |
 | S2.6 | S6.1, S6.15 |
 | S2.7 | S6.8, S6.9 |
-| S2.8 | S6.18, S6.19, S6.20, S6.21 |
+| S2.8 | S6.18, S6.19, S6.20, S6.21, S6.22 |
 | S2.9 | <!-- TODO: Add when extended thinking is elaborated --> |
 | S2.10 | <!-- TODO: Add when deterministic logic is elaborated --> |
 | S2.11 | S6.10, S6.11, S6.12 |

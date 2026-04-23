@@ -123,14 +123,21 @@ is sent back to the LLM.
 - On denial, the agentic loop continues — the LLM receives the denial as
   an error tool result and can adapt (try a different approach, ask for
   clarification, or produce a final response).
-- When a turn contains a mix of HITL and non-HITL tool calls, HITL callbacks
-  are invoked first for all HITL-flagged tools. After all approval decisions
-  are made, approved tools and non-HITL tools execute in parallel. Denied
-  tools receive error results without executing.
-- `run` always completes the agentic loop — HITL does not cause `run` to
-  return mid-loop. The callback blocks the agentic loop until the human
-  responds, consistent with how `run` blocks during LLM calls and tool
-  execution.
+- When a turn contains one or more HITL-flagged tool calls, approval
+  callbacks are invoked serially, in the order the tool calls appear in
+  the LLM response. After all approval decisions are made, approved tools
+  and non-HITL tools execute in parallel. Denied tools receive error
+  results without executing.
+- `run` does not return mid-loop for HITL decisions — the callback blocks
+  the agentic loop until it returns, consistent with how `run` blocks
+  during LLM calls and tool execution. The library imposes no timeout on
+  the callback; cancellation is via the `context.Context` passed to `run`.
+- If the approval callback panics, the Agent does not recover. The panic
+  propagates as a fatal error from `run`, and conversation state is
+  preserved up to the last completed turn — the partial turn that invoked
+  the callback is not retained. Rationale: a broken approval gate is a
+  safety issue, not a recoverable tool-execution issue. Continuing the
+  loop after a faulty gate would be worse than failing loudly.
 - Plan-level HITL (approving a multi-step plan before execution) is an
   application concern, not a library concern. Applications can implement
   plan approval using a HITL-flagged tool (e.g., a "propose_plan" tool).
@@ -369,7 +376,8 @@ Commands:
 
 Queries:
   definitions: TOOL_REGISTRY → LIST[TOOL_DEFINITION]
-  dispatch: TOOL_REGISTRY × TOOL_CALL × CONTEXT → TOOL_RESULT
+  has_approval_callback: TOOL_REGISTRY → BOOLEAN
+  dispatch: TOOL_REGISTRY × LIST[TOOL_CALL] × CONTEXT → LIST[TOOL_RESULT]
 
 Preconditions:
   register(r, t): ¬hitl(t) ∨ has_approval_callback(r)
@@ -379,8 +387,8 @@ The Tool Registry is effectively immutable after setup: the consuming
 application registers tools and (optionally) an approval callback during
 application initialization, then hands the registry to the Agent. `dispatch`
 is modeled as a query because it does not mutate the registry itself — any
-side effects it produces are attributable to the invoked tool's
-implementation, not to the registry. The precondition on `register` encodes
+side effects it produces are attributable to the invoked tools'
+implementations, not to the registry. The precondition on `register` encodes
 the fail-fast rule from S2.4: a HITL-flagged tool may only be registered
 once an approval callback is in place.
 
@@ -391,14 +399,46 @@ glossary entries for readability but are not themselves specified by this
 library. CONTEXT is the Go `context.Context` previous type carrying
 cancellation and OTEL span propagation.
 
+`hitl: TOOL_DEFINITION → BOOLEAN` is a projection on the previous type
+TOOL_DEFINITION — it reads the HITL flag set at registration (S2.4). It
+appears in the precondition on `register` and in the `dispatch` semantics
+below; TOOL_DEFINITION itself is not specified as an ADT.
+
+**Batch semantics.** `dispatch` takes the list of tool calls produced by a
+single LLM turn, not one call at a time. Its behavior is two-phase, per S2.8:
+
+1. **Approval phase.** For each call in `calls` in list order, if the call
+   targets a HITL-flagged tool, the registry's approval callback is invoked
+   synchronously. Callbacks are invoked serially — one at a time, in input
+   order — and all approval decisions are collected before any tool
+   executes.
+2. **Execution phase.** Approved HITL tools and non-HITL tools execute in
+   parallel. Denied HITL tools skip execution and produce an error tool
+   result indicating denial. Unknown tool names produce an error tool result
+   without executing anything.
+
+**Result alignment.** The returned LIST[TOOL_RESULT] is 1:1 aligned with
+the input LIST[TOOL_CALL] by index: `result[i]` is the outcome of
+`calls[i]`. Every input call produces exactly one result — normal success,
+tool error, denial error, or unknown-tool error. This alignment is what
+lets callers reassemble tool-result messages in protocol-correct order
+(S2.6).
+
+`dispatch` is partial in one runtime case not visible in its signature:
+if any approval callback panics during the approval phase, the panic
+propagates out of `dispatch` as a fatal error and no TOOL_RESULTs are
+returned for the batch (S2.8). This is distinct from tool-implementation
+panics, which `dispatch` recovers per call and converts to error tool
+results (S2.5).
+
 **Command-query table:**
 
 ```
-                             | definitions                    | dispatch(r, call, ctx)
------------------------------+--------------------------------+----------------------------------
-new_registry                 | empty                          | error tool result (unknown tool)
-register(r, t)               | definitions(r) appended with t | if call.name = t.name: execute t (HITL-gated if flagged); otherwise dispatch(r, call, ctx)
-set_approval_callback(r, cb) | definitions(r) (no change)     | dispatch(r, call, ctx), but HITL approvals now route through cb
+                             | definitions                    | has_approval_callback             | dispatch(r, calls, ctx)
+-----------------------------+--------------------------------+-----------------------------------+------------------------------------------------------------
+new_registry                 | empty                          | false                             | every call resolves to an unknown-tool error result; result list aligned by index with calls
+register(r, t)               | definitions(r) appended with t | has_approval_callback(r) (unchanged) | calls matching t.name are handled by t (approval-gated when hitl(t), producing a denial error on deny); remaining calls behave as under dispatch(r, [call], ctx); two-phase batch ordering applies (see prose)
+set_approval_callback(r, cb) | definitions(r) (unchanged)     | true                              | same tool matching and execution as dispatch(r, calls, ctx); HITL approvals use cb
 ```
 
 **Relates to:** S1.3 (Tool Registry), S2.4 (Tool Registration), S2.5 (Tool

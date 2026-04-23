@@ -28,16 +28,17 @@ without reading the source.
 **Acceptance:** All exported symbols have doc comments. Package-level
 documentation provides orientation and usage examples.
 
-### P4.4: Example Application
+### P4.4: Example Applications
 
-**Description:** A working agent application that uses the library to
+**Description:** Working agent applications that use the library to
 demonstrate its capabilities and validate its API through real use
-(dog-fooding). Serves as both a test of the library's ergonomics and a
-reference for consumers.
+(dog-fooding). Serve as both tests of the library's ergonomics and
+references for consumers. At minimum: one example exercising the core
+agentic loop with tool use (M6), and a separate example exercising
+tool-level human approval (M3).
 **Audience:** Library developers, potential future users.
-**Acceptance:** The example runs end-to-end, exercises the library's core
-features (at minimum: agentic loop, tool use, streaming), and
-demonstrates idiomatic usage.
+**Acceptance:** Each example runs end-to-end against the live Anthropic
+API and demonstrates idiomatic usage of the capability it targets.
 
 ## Major Tasks
 

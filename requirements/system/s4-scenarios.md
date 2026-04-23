@@ -128,3 +128,48 @@ registered.
 - **Thinking with tool use:** The LLM reasons in a thinking block, then
   requests tool calls. The agentic loop proceeds normally (S4.2). Thinking
   blocks may appear before any turn's tool-call requests.
+
+## S4.5: Tool Approval — Approval, Denial, and Mixed Turns
+
+**Elaborates:** G5.6
+**Preconditions:** Agent created with one or more HITL-flagged tools registered
+(S2.4) and an approval callback registered on the Tool Registry (S2.8).
+**Actor:** Library consumer (G7.2)
+
+**Main flow:**
+
+1. The consumer sends a user message describing a task.
+2. The Agent enters the agentic loop (S2.2). The LLM responds with a tool-use
+   request for a HITL-flagged tool.
+3. The Tool Registry invokes the approval callback with the tool name and
+   arguments. The callback returns approve.
+4. The tool executes normally (S2.5). Its result is appended to conversation
+   state and sent to the LLM in the next turn.
+5. The loop continues until the LLM produces a final response.
+
+**Alternate flows:**
+
+- **Denial:** The approval callback returns deny. The Tool Registry produces
+  an error tool result indicating user denial; the tool does not execute. The
+  LLM receives the denial and can adapt (try another approach, ask for
+  clarification, or produce a final response). The agentic loop continues.
+- **Mixed HITL and non-HITL tools in one turn:** The LLM requests multiple
+  tool calls in a single response, some flagged for approval and some not.
+  The Tool Registry invokes each HITL callback serially, in the order the
+  tool calls appear in the LLM response. After all approval decisions are
+  made, approved tools and non-HITL tools execute in parallel. Denied tools
+  receive error results without executing.
+- **All HITL tools in a turn denied:** The LLM receives only denial results
+  and either adapts in the next turn or produces a final response without
+  further tool calls.
+
+**Error cases:**
+
+- **Approval callback panics:** The Agent does not recover the panic. The
+  panic propagates as a fatal error from `run`. Conversation state is
+  preserved up to the last completed turn — the partial turn that invoked
+  the callback is not retained. Rationale: a broken approval gate is a
+  safety issue, not a recoverable tool-execution issue.
+- **Missing approval callback:** A setup-time error, not a runtime case.
+  Registering a HITL-flagged tool without an approval callback on the Tool
+  Registry fails at registration (S2.4, S6.21).
