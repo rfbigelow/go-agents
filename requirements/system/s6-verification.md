@@ -200,9 +200,9 @@ name, turn number). Error events are logged at Error level. Debug-level
 entries include operational detail. When tracing is active, log entries
 include trace and span ID attributes.
 
-## Acceptance Test (Example Application)
+## Acceptance Test (Example Applications)
 
-### S6.15: Example Application
+### S6.15: Tool-Use Example Application
 
 **Verifies:** All Must-priority requirements (S5), E6.1 (application controls
 execution flow).
@@ -215,6 +215,21 @@ user input, calling the Agent, and displaying responses. The application
 configures an OTEL SDK exporter and slog handler, demonstrating that traces
 and structured logs are emitted during agent execution.
 
+### S6.23: HITL Example Application
+
+**Verifies:** S2.8, and integration of S2.4 (registration with HITL flag) and
+S2.5 (dispatch with approval gate).
+**Method:** Demonstration — a separate example application exercising
+tool-level human approval runs against the live Anthropic API.
+**Pass condition:** Within a single session, the example exercises both an
+approval path (the approval callback returns approve, the tool executes, and
+its result is returned to the LLM) and a denial path (the callback returns
+deny, a denial error is returned to the LLM, and the agentic loop continues to
+a final response). The application surfaces each approval request to a human
+with the tool name and arguments, and conveys the human's decision to the
+callback. The application configures an OTEL SDK exporter and slog handler so
+that approval-gate decisions are observable in traces and logs.
+
 ## Verification Coverage
 
 | Requirement | Verified by |
@@ -222,11 +237,11 @@ and structured logs are emitted during agent execution.
 | S2.1 | S6.1, S6.15 |
 | S2.2 | S6.1, S6.3, S6.4, S6.8, S6.15 |
 | S2.3 | S6.1, S6.15 |
-| S2.4 | S6.2, S6.21, S6.15 |
-| S2.5 | S6.2, S6.5, S6.6, S6.7, S6.18, S6.19, S6.20, S6.15 |
+| S2.4 | S6.2, S6.21, S6.15, S6.23 |
+| S2.5 | S6.2, S6.5, S6.6, S6.7, S6.18, S6.19, S6.20, S6.15, S6.23 |
 | S2.6 | S6.1, S6.15 |
 | S2.7 | S6.8, S6.9 |
-| S2.8 | S6.18, S6.19, S6.20, S6.21, S6.22 |
+| S2.8 | S6.18, S6.19, S6.20, S6.21, S6.22, S6.23 |
 | S2.9 | <!-- TODO: Add when extended thinking is elaborated --> |
 | S2.10 | <!-- TODO: Add when deterministic logic is elaborated --> |
 | S2.11 | S6.10, S6.11, S6.12 |
