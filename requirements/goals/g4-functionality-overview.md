@@ -33,8 +33,9 @@ to handle permanent errors.
 
 **G4.6: Add capabilities progressively.** A minimal agent performs simple chat
 completions. The developer layers on capabilities — tool use, human-in-the-loop
-interaction, extended thinking, deterministic logic — incrementally as needed.
-There is no upfront complexity tax for capabilities the agent does not use.
+interaction, extended thinking, output effort tuning, deterministic logic —
+incrementally as needed. There is no upfront complexity tax for capabilities
+the agent does not use.
 
 **G4.7: Provide observability.** The library instruments its operations with
 distributed traces and structured logs. Traces form a span tree covering the

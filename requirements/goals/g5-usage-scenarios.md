@@ -41,11 +41,20 @@ before responding.
 **Steps:**
 
 1. The developer has a working agent (from G5.1 or G5.2).
-2. The developer enables extended thinking on the Agent.
-3. The Agent includes thinking blocks in its LLM interactions; the model reasons
-   through the problem before producing its visible response.
-4. The developer's application receives the response as before — the thinking
-   is handled transparently by the library.
+2. The developer configures extended thinking on the Agent — choosing a
+   thinking mode (`adaptive` to let the model decide whether and how much to
+   think, or `enabled` with an explicit `budget_tokens` cap for manual
+   control).
+3. By default, the library suppresses thinking text in the response stream
+   (`display: "omitted"`); the developer opts in to `display: "summarized"` if
+   they want to surface a summary of the model's reasoning to end users.
+4. During the run, the model emits thinking blocks; the library forwards
+   incremental thinking text via the event stream (when `summarized`) and
+   preserves each block's encrypted signature in conversation state so that
+   multi-turn tool-use loops continue to satisfy the API's protocol
+   requirements.
+5. The developer's application receives the final response as before; thinking
+   blocks and signatures are managed transparently by the library.
 
 ## G5.4: Composing Agents with Sub-Agents
 
@@ -85,6 +94,27 @@ to execute them.
    receives a denial result and adapts — trying a different approach, asking
    for clarification, or producing a final response.
 5. The developer receives the final response.
+
+## G5.7: Tuning Output Effort
+
+**Actor:** Library consumer (G7.2)
+
+**Goal:** Trade off response thoroughness against latency and token cost using
+the Anthropic effort parameter.
+
+**Steps:**
+
+1. The developer has a working agent (from G5.1 or G5.2).
+2. The developer sets an effort level on the Agent (e.g., `low` for
+   high-volume or latency-sensitive workloads, `high` for the API's default
+   thoroughness, `max` for the highest capability on supported models).
+3. The model adjusts its overall token allocation accordingly — affecting
+   text length, the number and verbosity of tool calls, and (when extended
+   thinking is configured) the depth of reasoning. Effort applies whether or
+   not extended thinking is enabled.
+4. The developer's application receives the response through the same stream
+   and conversation interfaces as before; effort changes the shape of the
+   response without changing the library's surface.
 
 ## G5.5: Agent Reuse Across Conversations (Future)
 

@@ -89,7 +89,8 @@ yields an ERROR identifying the failing invariant rather than an Agent;
 | max_tokens | Maximum tokens per LLM response |
 | max_iterations | Maximum agentic loop iterations before terminating (loop guard) |
 | temperature | Sampling temperature (optional) |
-| thinking | Extended thinking configuration (optional) |
+| thinking | Extended thinking configuration (optional) — see S2.9 |
+| effort | Output effort level (optional) — see S2.16 |
 
 **Command-query table:**
 
@@ -158,10 +159,111 @@ is sent back to the LLM.
 
 #### S2.9: Extended Thinking
 
-**Description:** The Agent supports Anthropic's extended thinking feature,
-allowing the model to reason through complex problems before responding.
-**Trigger:** Enabled via Agent configuration.
-**Relates to:** S1.2 (Completer), E2.1 (Anthropic Messages API).
+**Description:** The Agent exposes Anthropic's Extended Thinking feature
+through Agent configuration. The application selects a thinking mode
+(`enabled` with a `budget_tokens` cap, `adaptive` letting the model decide,
+or `disabled`) and optionally a `display` setting (`summarized` or
+`omitted`); the library forwards the configuration on each Completer
+request, surfaces thinking events through the stream, and preserves
+thinking blocks (including their opaque encrypted signatures) in
+conversation state so multi-turn tool-use loops and resumed sessions remain
+protocol-compliant.
+**Trigger:** The application configures `thinking` on the Agent.
+**Inputs:** `thinking` configuration — `type` (string, passed through),
+optional `budget_tokens` (when `type` is `enabled`), and optional `display`
+(when `type` is `enabled` or `adaptive`).
+**Outputs:**
+- The configured `thinking` value is included on each Completer request
+  (S2.14).
+- Thinking content arrives through the event stream (S2.3) as
+  `thinking_delta` events (incremental thinking text) and a
+  `signature_delta` event (the opaque signature, once per thinking block,
+  immediately before `content_block_stop`).
+- Thinking blocks are appended to the assistant message in conversation
+  state (S2.6), preserving each block's `signature` verbatim.
+**Rules:**
+- **Pass-through validation.** The library does not validate
+  `thinking.type`, `budget_tokens`, or `display` against the targeted
+  model's supported set. Unsupported combinations surface as upstream API
+  errors. This is consistent with how the library treats `model` (S2.1).
+- **Library-side `display` default.** When the application sets
+  `thinking.type` to `enabled` or `adaptive` without specifying `display`,
+  the library sends `display: "omitted"` so the application is not exposed
+  to per-model API defaults. Applications that surface thinking text in
+  their UI must opt in by setting `display: "summarized"`. The library
+  passes through whatever value the application sets. When `thinking.type`
+  is `disabled`, the library does not send `display` (the API rejects
+  `display` in combination with `disabled`).
+- **No thinking by default.** When the application does not configure
+  `thinking`, the library omits the parameter from the request and lets
+  the model's API-side default apply.
+- **Signature opacity and preservation.** The `signature` field is opaque
+  to the library; it is never inspected, parsed, or mutated. Thinking
+  blocks appended to conversation state retain their signatures and are
+  resent verbatim on subsequent Completer requests.
+- **Tool-use turn preservation.** When an assistant turn produces both
+  thinking blocks and `tool_use` blocks, the thinking blocks remain part
+  of that assistant message in conversation state. The next Completer
+  request — the one carrying the corresponding `tool_result` — therefore
+  includes the thinking blocks ahead of any later content, satisfying the
+  Anthropic API's protocol requirement that thinking from a tool-use turn
+  be preserved across the tool result.
+- **Streaming surface.** The event stream (S2.3) yields `thinking_delta`
+  and `signature_delta` events alongside `text_delta`, in the order the
+  API produces them. Applications using `display: "summarized"` can render
+  thinking text incrementally; applications using `display: "omitted"`
+  observe only `signature_delta` (no thinking text) for each thinking
+  block.
+- **Tool choice constraint is the application's.** When thinking is
+  enabled or adaptive, the Anthropic API restricts `tool_choice` to
+  `auto` or `none`. The library does not pre-check this combination;
+  invalid combinations surface as API errors.
+- **Beta headers are the application's.** Anthropic beta headers related
+  to thinking — most notably `interleaved-thinking-2025-05-14` for manual
+  mode on models that require it — are configured on the Anthropic client
+  (E2.2) by the application. The library does not manage thinking-related
+  beta headers. (Adaptive thinking does not require a beta header on
+  supported models.)
+- **Persistence interaction.** Thinking blocks (including signatures) are
+  part of the SDK-native message representation that S2.15 round-trips.
+  A persisted assistant message that contains both thinking and `tool_use`
+  blocks must be resumed verbatim; dropping its thinking blocks would
+  produce a history that violates the Anthropic API's tool-use protocol on
+  the next turn.
+**Relates to:** S1.2 (Completer), S1.4 (Conversation State), S2.3
+(Streaming), S2.6 (Conversation State Management), S2.14 (Completer),
+S2.15 (Conversation Resumption), S2.16 (Effort), E1 (Extended Thinking,
+Adaptive Thinking, Thinking Signature, Effort), E2.1 (Anthropic Messages
+API), E2.2 (Anthropic Go SDK), G5.3 (Adding Extended Thinking).
+
+#### S2.16: Effort
+
+**Description:** The Agent exposes the Anthropic Messages API
+`output_config.effort` parameter, which guides the model's overall token
+allocation across an entire response — affecting text length, the number
+and verbosity of tool calls, and (when Extended Thinking is configured)
+the depth of reasoning. Effort is independent of Extended Thinking and may
+be configured with `thinking.type` set to `enabled`, `adaptive`,
+`disabled`, or unset.
+**Trigger:** The application configures `effort` on the Agent.
+**Inputs:** `effort` — a passed-through string value (e.g., `"low"`,
+`"medium"`, `"high"`, `"xhigh"`, `"max"`).
+**Outputs:** The configured `effort` is included on each Completer request
+(S2.14).
+**Rules:**
+- **Pass-through validation.** The library does not validate effort values
+  against the targeted model's supported set. Unsupported values surface
+  as upstream API errors, consistent with how the library treats `model`
+  (S2.1) and `thinking` (S2.9).
+- **Independence from thinking.** Effort applies whether or not Extended
+  Thinking is configured. With thinking `disabled` (or unset), effort
+  still affects text and tool-call token allocation.
+- **No library default.** When the application does not configure
+  `effort`, the library omits the parameter from the request and lets the
+  model's API-side default apply.
+**Relates to:** S1.2 (Completer), S2.9 (Extended Thinking), S2.14
+(Completer), E1 (Effort), E2.1 (Anthropic Messages API), G5.7 (Tuning
+Output Effort).
 
 #### S2.10: Deterministic Logic
 
@@ -279,7 +381,8 @@ Queries:
 | tools | Tool definitions available for this completion (optional) |
 | tool_choice | How the model should choose tools: auto, any, specific, or none (optional) |
 | temperature | Sampling temperature (optional) |
-| thinking | Extended thinking configuration (optional) |
+| thinking | Extended thinking configuration (optional) — see S2.9 |
+| effort | Output effort level (optional) — see S2.16 |
 
 **Response (EVENT_STREAM):**
 
@@ -513,6 +616,15 @@ the history violates.
   format as the library evolves. Future capabilities that change the
   in-memory representation (e.g., compaction per E1) must preserve
   round-tripping through that representation.
+- Assistant messages may contain `thinking` blocks (S2.9). These are part
+  of the SDK-native representation and must be persisted and restored
+  verbatim, including their opaque `signature` fields. An assistant
+  message that contains both `thinking` and `tool_use` blocks must be
+  resumed with both intact; dropping its thinking blocks would produce a
+  history that violates the Anthropic API's tool-use protocol on the next
+  turn. The four invariants above are message-structure invariants and do
+  not separately validate the content of thinking blocks.
 **Relates to:** S1.4 (Conversation State), S2.1 (Agent Creation), S2.6
-(Conversation State Management), S2.11 (Sub-Agent Composition), E3.5
-(Consumer Resource Control), G4.4 (Manage Conversation History).
+(Conversation State Management), S2.9 (Extended Thinking), S2.11
+(Sub-Agent Composition), E3.5 (Consumer Resource Control), G4.4 (Manage
+Conversation History).

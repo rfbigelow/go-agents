@@ -105,9 +105,55 @@ application's responsibility.
 
 ### Extended Thinking
 
-An Anthropic API feature that allows the model to perform chain-of-thought
-reasoning in a dedicated thinking block before producing its visible response.
-Useful for complex tasks requiring multi-step reasoning.
+An Anthropic Messages API feature that allows the model to perform
+chain-of-thought reasoning in dedicated thinking content blocks before
+producing its visible response. Configured per request via the `thinking`
+parameter, which selects a mode (`enabled` with an explicit `budget_tokens`,
+`adaptive` letting the model decide, or `disabled`) and optionally a
+`display` setting (`summarized` or `omitted`) controlling whether the
+thinking text is returned. The encrypted full thinking is always returned
+in a `signature` field regardless of `display`. See Adaptive Thinking,
+Thinking Signature, and Effort for related concepts.
+
+### Adaptive Thinking
+
+The `thinking.type: "adaptive"` mode of Extended Thinking, in which Claude
+dynamically determines whether and how much to think for each request rather
+than the application setting a fixed token budget. Adaptive thinking
+automatically enables Interleaved Thinking on supported models without a
+beta header. The depth of thinking under adaptive mode is influenced by the
+Effort parameter. Available on Claude Opus 4.6 and later and Claude
+Sonnet 4.6; on Claude Opus 4.7 it is the only supported thinking mode.
+
+### Interleaved Thinking
+
+The ability for the model to emit thinking blocks between tool calls within
+a single assistant turn, rather than only before the first text or tool_use
+block. Automatic when Adaptive Thinking is in use on supported models;
+otherwise gated by an Anthropic beta header (e.g.,
+`interleaved-thinking-2025-05-14`) configured on the Anthropic client by the
+consuming application.
+
+### Thinking Signature
+
+An opaque, encrypted representation of the model's full thinking content,
+returned on each thinking block in the `signature` field. The library treats
+signatures as opaque and preserves them verbatim when round-tripping
+thinking blocks across turns. Sending thinking blocks back to the API with
+their signatures intact is required during tool-use loops (the assistant
+turn that produced a `tool_use` block must include any preceding thinking
+blocks when its `tool_result` is delivered) and recommended in other
+multi-turn scenarios.
+
+### Effort
+
+The Anthropic Messages API `output_config.effort` parameter, which guides
+the model's overall token allocation for a response — affecting text
+length, the number and verbosity of tool calls, and (when Extended Thinking
+is on) the depth of reasoning. Accepts values such as `low`, `medium`,
+`high` (the API default), `xhigh`, and `max`, with availability varying by
+model. Effort is independent of Extended Thinking; it can be set with
+thinking enabled, adaptive, or disabled.
 
 ### Human-in-the-Loop (HITL)
 

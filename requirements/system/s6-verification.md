@@ -156,6 +156,53 @@ before the callback invocation — the partial turn (user message and LLM
 tool-use response) is not retained. Log output includes the panic details
 (per S2.13).
 
+### S6.25: Extended Thinking
+
+**Verifies:** S2.9
+**Method:** Test with mocked API responses, exercising the multiple thinking
+modes, the streaming surface, and multi-turn preservation.
+**Pass condition:**
+- An Agent configured with `thinking.type` set to `enabled`,
+  `adaptive`, or `disabled` includes the configured value verbatim on each
+  Completer request, with no library-side validation against the model.
+  Configuring `thinking` with an unrecognized `type` is also passed through
+  unchanged.
+- When the application configures `thinking.type` as `enabled` or
+  `adaptive` without specifying `display`, the request includes
+  `display: "omitted"`. When the application sets `display: "summarized"`,
+  that value is passed through. When the application sets
+  `thinking.type: "disabled"`, the request omits `display` entirely.
+- When the application does not configure `thinking`, the request omits the
+  parameter.
+- For a mocked streamed response containing a `thinking` content block, the
+  event stream surfaces `thinking_delta` events (when the mock provides
+  thinking text) and a `signature_delta` event before
+  `content_block_stop`, in the order the mock emits them.
+- After a turn whose mocked response contains both `thinking` and
+  `tool_use` blocks, conversation state retains the thinking blocks
+  (including their `signature` fields) within the assistant message, and
+  the next Completer request — the one carrying the `tool_result` —
+  includes those thinking blocks ahead of any later content, with
+  signatures unchanged.
+- For a turn whose response contains only `thinking` and `text` blocks, the
+  thinking block is appended to conversation state with its signature
+  unchanged.
+
+### S6.26: Effort
+
+**Verifies:** S2.16
+**Method:** Test with mocked API responses.
+**Pass condition:**
+- An Agent configured with an `effort` value (e.g., `"low"`, `"medium"`,
+  `"high"`, `"xhigh"`, `"max"`, or any other string) includes that value
+  verbatim on each Completer request under `output_config.effort`, with no
+  library-side validation against the model.
+- An Agent with no `effort` configured omits the `output_config.effort`
+  parameter from each Completer request.
+- The presence or absence of a `thinking` configuration does not affect how
+  `effort` is forwarded; effort and thinking are configured and propagated
+  independently.
+
 ### S6.24: Conversation Resumption
 
 **Verifies:** S2.15
@@ -264,9 +311,10 @@ loop in span output.
 | S2.6 | S6.1, S6.15 |
 | S2.7 | S6.8, S6.9 |
 | S2.8 | S6.18, S6.19, S6.20, S6.21, S6.22, S6.23 |
-| S2.9 | <!-- TODO: Add when extended thinking is elaborated --> |
+| S2.9 | S6.25 |
 | S2.10 | <!-- TODO: Add when deterministic logic is elaborated --> |
 | S2.11 | S6.10, S6.11, S6.12 |
 | S2.12 | S6.16, S6.14 |
 | S2.13 | S6.17 |
 | S2.15 | S6.24 |
+| S2.16 | S6.26 |
