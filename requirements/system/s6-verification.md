@@ -227,8 +227,12 @@ its result is returned to the LLM) and a denial path (the callback returns
 deny, a denial error is returned to the LLM, and the agentic loop continues to
 a final response). The application surfaces each approval request to a human
 with the tool name and arguments, and conveys the human's decision to the
-callback. The application configures an OTEL SDK exporter and slog handler so
-that approval-gate decisions are observable in traces and logs.
+callback. The application configures a slog handler so that approval-gate
+decisions (including the "tool denied" record on the denial path) are
+observable in structured logs. Trace observability is exercised by the
+library's own instrumentation (S2.12) and verified by S6.16; the example does
+not need to wire up an OTEL exporter, which would drown the interactive chat
+loop in span output.
 
 ## Verification Coverage
 

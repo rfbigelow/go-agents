@@ -81,18 +81,19 @@ Requires Go 1.25+ and an Anthropic API key.
 export ANTHROPIC_API_KEY=sk-ant-...
 go run ./examples/chat/       # basic streaming chat
 go run ./examples/tool-use/   # tool use: current time + calculator
+go run ./examples/hitl/       # tool use with human approval gate
 ```
 
 ## Project Status
 
-M1 (Basic Conversation) and M2 (Tool Use) are implemented: streaming
-completions, conversation state management, tool registration, parallel
-tool dispatch with HITL-ready approval gate, and observability (OTEL
-tracing + slog logging) across LLM calls, tool-dispatch batches, and
-individual tool executions.
+M1 (Basic Conversation), M2 (Tool Use), and M3 (HITL Example) are
+implemented: streaming completions, conversation state management, tool
+registration, parallel tool dispatch with a working human approval gate
+(see `examples/hitl/`), and observability (OTEL tracing + slog logging)
+across LLM calls, tool-dispatch batches, and individual tool executions.
 
-Planned milestones: Human-in-the-Loop (M3), Extended Thinking (M4),
-Deterministic Logic (M5), Example Application (M6).
+Planned milestones: Extended Thinking (M4), Deterministic Logic (M5),
+Example Application (M6).
 
 See [requirements/](requirements/README.md) for the full PEGS requirements.
 
