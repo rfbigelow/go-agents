@@ -156,6 +156,24 @@ before the callback invocation — the partial turn (user message and LLM
 tool-use response) is not retained. Log output includes the panic details
 (per S2.13).
 
+### S6.24: Conversation Resumption
+
+**Verifies:** S2.15
+**Method:** Test with mocked API responses, exercising both successful resume
+and rejection of malformed histories.
+**Pass condition:** An Agent constructed with a valid prior history (empty, or
+ending with an assistant message and otherwise satisfying the four S2.15
+invariants) initializes its conversation state to that history; a subsequent
+`run` extends from the supplied history and the API request includes the prior
+messages. An Agent constructed with each of the following malformed histories
+yields a constructor error identifying the violated rule, and no Agent is
+returned: (1) a history ending with a user message; (2) a history with two
+consecutive same-role messages; (3) a history containing an assistant
+`tool_use` block whose ID has no matching `tool_result` in the immediately
+following user message; (4) a history containing a `tool_result` block whose
+ID has no preceding `tool_use`. An empty history is accepted and yields an
+Agent equivalent to one created via the basic constructor.
+
 ## Non-Functional Verification
 
 ### S6.13: Platform Agnosticism
@@ -251,3 +269,4 @@ loop in span output.
 | S2.11 | S6.10, S6.11, S6.12 |
 | S2.12 | S6.16, S6.14 |
 | S2.13 | S6.17 |
+| S2.15 | S6.24 |

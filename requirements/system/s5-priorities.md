@@ -35,6 +35,7 @@ are not required for a viable first release.
 - **S2.9** — Extended thinking
 - **S2.10** — Deterministic logic
 - **S2.11** — Sub-agent composition
+- **S2.15** — Conversation resumption
 
 ### Could
 
@@ -57,6 +58,8 @@ No requirements currently at this level.
   depend on S2.2 but are independent of each other.
 - S2.11 (sub-agent composition) depends on S2.2 and S2.5 (a sub-agent is
   invoked as a tool).
+- S2.15 (conversation resumption) depends on S2.1 (agent creation) and S2.6
+  (conversation state).
 - S2.12 (tracing) and S2.13 (logging) are cross-cutting: they apply to
   S2.2 (agentic loop), S2.5 (tool dispatch), and S2.11 (sub-agent
   composition). Instrumentation for each component is added when that

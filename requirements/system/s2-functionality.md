@@ -8,7 +8,8 @@
 Completer, a Tool Registry, and configuration. A minimally configured Agent
 (with an empty Tool Registry) performs simple LLM completions. Capabilities
 (tool use, human-in-the-loop, extended thinking, deterministic logic) are
-added incrementally.
+added incrementally. An Agent may alternatively be constructed with a prior
+message history to resume a persisted session (S2.15).
 **Trigger:** Application initialization.
 **Inputs:** Completer instance, Tool Registry instance, configuration (system
 prompt, model, max tokens, max iterations, optional parameters).
@@ -16,7 +17,8 @@ prompt, model, max tokens, max iterations, optional parameters).
 **Rules:** An Agent whose Tool Registry is empty behaves as a simple chat
 completion client. A Tool Registry with registered tools enables the agentic
 loop.
-**Relates to:** G3.1 (reusability), E3.3 (platform agnosticism).
+**Relates to:** G3.1 (reusability), E3.3 (platform agnosticism), S2.15
+(Conversation Resumption).
 
 ### S2.2: Agentic Loop Execution
 
@@ -55,12 +57,16 @@ Types: AGENT
 
 Creators:
   new_agent: COMPLETER × TOOL_REGISTRY × CONFIG → AGENT
+  new_agent_with_history: COMPLETER × TOOL_REGISTRY × CONFIG × LIST[MESSAGE] → AGENT ∪ ERROR
 
 Commands:
   run: AGENT × MESSAGE → AGENT
 
 Queries:
   conversation: AGENT → CONVERSATION_STATE
+
+Preconditions:
+  new_agent_with_history(c, r, cfg, msgs): msgs satisfies the four S2.15 invariants
 ```
 
 The Agent's mutable state is its conversation history. Each `run` appends
@@ -68,6 +74,11 @@ the user message, drives the agentic loop (calling the Completer,
 dispatching tools, repeating as needed), appends all resulting messages
 (assistant responses, tool results), and returns the updated Agent. The
 response is delivered incrementally via the event stream during the run.
+
+`new_agent_with_history` constructs an Agent whose initial conversation is the
+supplied message list (S2.15). When the precondition is violated, construction
+yields an ERROR identifying the failing invariant rather than an Agent;
+`new_agent_with_history(c, r, cfg, [])` is equivalent to `new_agent(c, r, cfg)`.
 
 **Configuration (CONFIG):**
 
@@ -83,10 +94,11 @@ response is delivered incrementally via the event stream during the run.
 **Command-query table:**
 
 ```
-              | conversation
---------------+---------------------------------------------------------------
-new_agent     | empty (no messages)
-run(a, msg)   | conversation(a) + user message + agentic loop messages
+                                        | conversation
+----------------------------------------+---------------------------------------------------------------
+new_agent                               | empty (no messages)
+new_agent_with_history(c, r, cfg, msgs) | msgs (when validation passes)
+run(a, msg)                             | conversation(a) + user message + agentic loop messages
 ```
 
 `run` extends the conversation with the user message and all messages
@@ -451,7 +463,8 @@ Dispatch), S2.8 (HITL).
 **Description:** The library maintains the message history for an agent session.
 Messages are appended as the conversation progresses (user messages, assistant
 responses, tool results). The library enforces correct message ordering and
-tool-use protocol conventions.
+tool-use protocol conventions; S2.15 formalizes those invariants at construction
+time when a session is resumed from prior history.
 **Trigger:** Each turn in the agentic loop.
 **Inputs:** New messages generated during the conversation.
 **Outputs:** Updated conversation state available for the next LLM call.
@@ -459,4 +472,47 @@ tool-use protocol conventions.
 defaults. The consuming application can control resource-significant aspects
 such as history bounds and compaction strategy (per E3.5) but does not need
 to manage message ordering or protocol compliance.
-**Relates to:** S1.4 (Conversation State), E3.5 (Consumer Resource Control).
+**Relates to:** S1.4 (Conversation State), S2.15 (Conversation Resumption),
+E3.5 (Consumer Resource Control).
+
+### S2.15: Conversation Resumption
+
+**Description:** The consuming application can create an Agent with a
+pre-existing message history, so conversations persisted across process
+boundaries can be resumed. The library validates the supplied history against
+the same protocol invariants it enforces on its own appends (S2.6); on failure,
+construction returns an error and no Agent is produced. Persistence itself —
+serialization format on disk, storage backend, retention policy — is the
+application's responsibility.
+**Trigger:** Application initialization for a resumed session.
+**Inputs:** Completer, Tool Registry, Config, and a list of prior messages in
+the same SDK-native representation that the conversation read interface
+returns (S2.6).
+**Outputs:** A configured Agent whose conversation state is initialized to the
+supplied history, ready to run; or an error identifying which validation rule
+the history violates.
+**Rules:**
+- Construction validates the history against four invariants:
+  1. The history is empty, or ends with an assistant message (so the next
+     `run` can append a user message without breaking alternation).
+  2. User and assistant messages alternate.
+  3. Every assistant `tool_use` block has a matching `tool_result` block (by
+     tool-use ID) in the immediately following user message.
+  4. No `tool_result` block appears without a preceding `tool_use` for the
+     same ID.
+- Validation failure is a constructor error — no Agent is produced and no
+  partial state is retained. The error identifies the failing rule.
+- An empty history is valid; passing an empty history is equivalent to the
+  basic constructor (S2.1).
+- Resumption is for top-level Agents only. Sub-agents (S2.11) have ephemeral,
+  independent state and are not constructed from prior history.
+- The library checks structural and protocol-level invariants only. It does
+  not verify that the history was produced by this library or by any
+  particular model.
+- The SDK-native message representation must remain the persistence wire
+  format as the library evolves. Future capabilities that change the
+  in-memory representation (e.g., compaction per E1) must preserve
+  round-tripping through that representation.
+**Relates to:** S1.4 (Conversation State), S2.1 (Agent Creation), S2.6
+(Conversation State Management), S2.11 (Sub-Agent Composition), E3.5
+(Consumer Resource Control), G4.4 (Manage Conversation History).

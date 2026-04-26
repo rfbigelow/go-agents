@@ -64,7 +64,10 @@ configuration), bridges to the SDK, and returns a streaming completion.
 
 The process of summarizing or truncating conversation history to keep the
 context within the LLM's token limits while preserving essential information.
-A planned future capability of the Conversation State component.
+A planned future capability of the Conversation State component. Any compaction
+implementation must remain compatible with the persistence wire format defined
+by Conversation Resumption (S2.15) so that compacted histories can still be
+serialized and resumed.
 
 ### Context Window
 
@@ -96,7 +99,9 @@ The library component that owns the message history for an agent
 session. Stores user messages, assistant responses, and tool results, and
 enforces correct message ordering and protocol conventions. The consuming
 application can control resource-significant aspects such as history bounds
-and compaction strategy.
+and compaction strategy. An Agent may be constructed with a prior history to
+resume a persisted session (S2.15); persistence itself is the consuming
+application's responsibility.
 
 ### Extended Thinking
 

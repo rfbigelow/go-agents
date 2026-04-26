@@ -23,7 +23,9 @@ protocol.
 **G4.4: Manage conversation history.** The library tracks the full conversation
 (user messages, assistant responses, tool results), enforcing correct message
 ordering and protocol conventions. The developer controls resource-significant
-aspects such as history bounds and compaction strategy (see E3.5).
+aspects such as history bounds and compaction strategy (see E3.5). Applications
+can persist conversation history externally and resume an agent from prior
+history (see S2.15).
 
 **G4.5: Handle API errors gracefully.** Transient failures (rate limits,
 timeouts, server errors) are retried automatically. The developer only needs
