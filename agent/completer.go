@@ -22,6 +22,8 @@ type CompletionRequest struct {
 	System      []anthropic.TextBlockParam
 	Tools       []anthropic.ToolUnionParam
 	Temperature *float64
+	Thinking    *ThinkingConfig
+	Effort      *string
 }
 
 // EventStream provides typed streaming events and accumulates the
@@ -64,7 +66,18 @@ func newEventStream(stream *ssestream.Stream[anthropic.MessageStreamEventUnion])
 // NewTestEventStream creates an EventStream for testing that yields the
 // given text deltas and returns the provided message when fully consumed.
 func NewTestEventStream(texts []string, msg anthropic.Message) *EventStream {
-	return &EventStream{source: &testSource{texts: texts, idx: -1}, message: msg}
+	events := make([]testEvent, 0, len(texts))
+	for _, t := range texts {
+		events = append(events, testEvent{Kind: "text", Value: t})
+	}
+	return &EventStream{source: &testSource{events: events, idx: -1}, message: msg}
+}
+
+// NewTestEventStreamFromEvents creates an EventStream for testing that
+// yields a heterogeneous sequence of text/thinking/signature deltas and
+// returns the provided message when fully consumed.
+func NewTestEventStreamFromEvents(events []testEvent, msg anthropic.Message) *EventStream {
+	return &EventStream{source: &testSource{events: events, idx: -1}, message: msg}
 }
 
 // NewTestEventStreamError creates an EventStream for testing that returns
@@ -83,8 +96,15 @@ func (es *EventStream) Next() bool {
 		}
 
 		if raw.Type == "content_block_delta" {
-			if delta := raw.Delta; delta.Type == "text_delta" {
-				es.event = Event{Type: EventTextDelta, Text: delta.Text}
+			switch raw.Delta.Type {
+			case "text_delta":
+				es.event = Event{Type: EventTextDelta, Text: raw.Delta.Text}
+				return true
+			case "thinking_delta":
+				es.event = Event{Type: EventThinkingDelta, Thinking: raw.Delta.Thinking}
+				return true
+			case "signature_delta":
+				es.event = Event{Type: EventSignatureDelta, Signature: raw.Delta.Signature}
 				return true
 			}
 		}
@@ -113,13 +133,20 @@ func (es *EventStream) Close() error {
 	return es.source.Close()
 }
 
+// testEvent describes a single content_block_delta to surface from a
+// testSource. Kind is one of "text", "thinking", "signature".
+type testEvent struct {
+	Kind  string
+	Value string
+}
+
 // testSource yields pre-built Event values directly, bypassing the
 // SDK's Accumulate path. The EventStream's message field is set at
 // construction time by NewTestEventStream.
 type testSource struct {
-	texts []string
-	idx   int
-	err   error
+	events []testEvent
+	idx    int
+	err    error
 }
 
 func (s *testSource) Next() bool {
@@ -127,24 +154,74 @@ func (s *testSource) Next() bool {
 		return false
 	}
 	s.idx++
-	return s.idx < len(s.texts)
+	return s.idx < len(s.events)
 }
 
 func (s *testSource) Current() anthropic.MessageStreamEventUnion {
-	// Return a content_block_delta with text_delta type so EventStream.Next()
-	// recognizes it and yields an EventTextDelta.
+	e := s.events[s.idx]
+	delta := anthropic.MessageStreamEventUnionDelta{}
+	switch e.Kind {
+	case "text":
+		delta.Type = "text_delta"
+		delta.Text = e.Value
+	case "thinking":
+		delta.Type = "thinking_delta"
+		delta.Thinking = e.Value
+	case "signature":
+		delta.Type = "signature_delta"
+		delta.Signature = e.Value
+	}
 	return anthropic.MessageStreamEventUnion{
-		Type: "content_block_delta",
-		Delta: anthropic.MessageStreamEventUnionDelta{
-			Type: "text_delta",
-			Text: s.texts[s.idx],
-		},
+		Type:  "content_block_delta",
+		Delta: delta,
 	}
 }
 
-func (s *testSource) Err() error      { return s.err }
-func (s *testSource) Close() error    { return nil }
+func (s *testSource) Err() error        { return s.err }
+func (s *testSource) Close() error      { return nil }
 func (s *testSource) accumulates() bool { return false }
+
+// buildThinkingParam translates a library ThinkingConfig into the SDK's
+// typed thinking union (S2.9). Unknown Type values yield an empty union
+// (boundary-level passthrough only — the SDK has no slot for them).
+func buildThinkingParam(t *ThinkingConfig) anthropic.ThinkingConfigParamUnion {
+	switch t.Type {
+	case "enabled":
+		p := &anthropic.ThinkingConfigEnabledParam{}
+		if t.BudgetTokens != nil {
+			p.BudgetTokens = *t.BudgetTokens
+		}
+		p.Display = resolveEnabledDisplay(t.Display)
+		return anthropic.ThinkingConfigParamUnion{OfEnabled: p}
+	case "adaptive":
+		p := &anthropic.ThinkingConfigAdaptiveParam{}
+		p.Display = resolveAdaptiveDisplay(t.Display)
+		return anthropic.ThinkingConfigParamUnion{OfAdaptive: p}
+	case "disabled":
+		return anthropic.ThinkingConfigParamUnion{
+			OfDisabled: &anthropic.ThinkingConfigDisabledParam{},
+		}
+	}
+	return anthropic.ThinkingConfigParamUnion{}
+}
+
+// resolveEnabledDisplay applies the library-side default of "omitted" when
+// no explicit display was set on a Type=enabled thinking config (S2.9).
+func resolveEnabledDisplay(d *string) anthropic.ThinkingConfigEnabledDisplay {
+	if d == nil {
+		return anthropic.ThinkingConfigEnabledDisplayOmitted
+	}
+	return anthropic.ThinkingConfigEnabledDisplay(*d)
+}
+
+// resolveAdaptiveDisplay applies the library-side default of "omitted" when
+// no explicit display was set on a Type=adaptive thinking config (S2.9).
+func resolveAdaptiveDisplay(d *string) anthropic.ThinkingConfigAdaptiveDisplay {
+	if d == nil {
+		return anthropic.ThinkingConfigAdaptiveDisplayOmitted
+	}
+	return anthropic.ThinkingConfigAdaptiveDisplay(*d)
+}
 
 // AnthropicCompleter is the library-provided Completer implementation.
 // It acts as a stateless Adapter for an Anthropic client.
@@ -176,6 +253,16 @@ func (c *AnthropicCompleter) Complete(ctx context.Context, req CompletionRequest
 
 	if req.Temperature != nil {
 		params.Temperature = param.NewOpt(*req.Temperature)
+	}
+
+	if req.Thinking != nil {
+		params.Thinking = buildThinkingParam(req.Thinking)
+	}
+
+	if req.Effort != nil {
+		params.OutputConfig = anthropic.OutputConfigParam{
+			Effort: anthropic.OutputConfigEffort(*req.Effort),
+		}
 	}
 
 	stream := c.client.Messages.NewStreaming(ctx, params)

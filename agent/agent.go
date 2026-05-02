@@ -167,6 +167,14 @@ func (a *Agent) buildRequest() CompletionRequest {
 		req.Temperature = a.config.Temperature
 	}
 
+	if a.config.Thinking != nil {
+		req.Thinking = a.config.Thinking
+	}
+
+	if a.config.Effort != nil {
+		req.Effort = a.config.Effort
+	}
+
 	return req
 }
 
