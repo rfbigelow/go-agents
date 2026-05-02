@@ -7,7 +7,7 @@
 | M1: Basic Conversation | Complete | Agent can perform simple LLM completions with streaming via the Completer. Conversation state is managed by the library. Tracing spans and structured logs are emitted for the agent run and LLM calls. | — |
 | M2: Tool Use | Complete | Agent supports tool registration and the full agentic loop (tool dispatch, result handling, loop termination). Tracing spans and structured logs cover tool dispatch and execution. | M1 |
 | M3: HITL Example | Complete | Example application demonstrating tool-level human approval (S2.8) end-to-end — exercising both approval and denial paths against the live Anthropic API. The library capability shipped with M2; M3 delivered the working demonstration in `examples/hitl/`. | M2 |
-| M4: Extended Thinking | Planned | Agent supports Anthropic's extended thinking feature. | M1 |
+| M4: Extended Thinking | Complete | Agent exposes Anthropic's Extended Thinking (S2.9) and the related `output_config.effort` parameter (S2.16) on Agent configuration. Streaming surfaces `thinking_delta` and `signature_delta` events; thinking blocks (with signatures) are preserved across multi-turn tool-use loops via `Message.ToParam()`. Demonstrated in `examples/chat/` with per-model thinking-mode selection (adaptive / enabled / off) and gray-text rendering of thinking. | M1 |
 | M5: Deterministic Logic | Planned | Agent can incorporate non-LLM logic steps in workflows. | M2 |
 | M6: Example Application | Planned | Dog-food application demonstrating the library's capabilities. | M2 (at minimum) |
 

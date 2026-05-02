@@ -86,14 +86,15 @@ go run ./examples/hitl/       # tool use with human approval gate
 
 ## Project Status
 
-M1 (Basic Conversation), M2 (Tool Use), and M3 (HITL Example) are
-implemented: streaming completions, conversation state management, tool
-registration, parallel tool dispatch with a working human approval gate
-(see `examples/hitl/`), and observability (OTEL tracing + slog logging)
+M1 (Basic Conversation), M2 (Tool Use), M3 (HITL Example), and M4
+(Extended Thinking) are implemented: streaming completions, conversation
+state management, tool registration, parallel tool dispatch with a
+working human approval gate (see `examples/hitl/`), Extended Thinking
+with adaptive and enabled modes plus `output_config.effort` (see
+`examples/chat/`), and observability (OTEL tracing + slog logging)
 across LLM calls, tool-dispatch batches, and individual tool executions.
 
-Planned milestones: Extended Thinking (M4), Deterministic Logic (M5),
-Example Application (M6).
+Planned milestones: Deterministic Logic (M5), Example Application (M6).
 
 See [requirements/](requirements/README.md) for the full PEGS requirements.
 

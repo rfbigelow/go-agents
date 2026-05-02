@@ -36,8 +36,9 @@ with distributed traces (via OpenTelemetry) and structured logs (via slog).
 
 ## Project Status
 
-M1 (Basic Conversation), M2 (Tool Use), and M3 (HITL Example) implemented.
-Requirements continue to evolve alongside implementation.
+M1 (Basic Conversation), M2 (Tool Use), M3 (HITL Example), and M4
+(Extended Thinking) implemented. Requirements continue to evolve
+alongside implementation.
 
 ## How to Read These Requirements
 
