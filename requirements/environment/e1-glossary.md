@@ -64,10 +64,8 @@ configuration), bridges to the SDK, and returns a streaming completion.
 
 The process of summarizing or truncating conversation history to keep the
 context within the LLM's token limits while preserving essential information.
-A planned future capability of the Conversation State component. Any compaction
-implementation must remain compatible with the persistence wire format defined
-by Conversation Resumption (S2.15) so that compacted histories can still be
-serialized and resumed.
+A planned future capability of the Conversation State component, deferred
+until core capabilities are stable.
 
 ### Context Window
 
@@ -99,8 +97,8 @@ The library component that owns the message history for an agent
 session. Stores user messages, assistant responses, and tool results, and
 enforces correct message ordering and protocol conventions. The consuming
 application can control resource-significant aspects such as history bounds
-and compaction strategy. An Agent may be constructed with a prior history to
-resume a persisted session (S2.15); persistence itself is the consuming
+and compaction strategy, and may persist conversation history externally
+to resume a session in a later process. Persistence itself is the
 application's responsibility.
 
 ### Extended Thinking
@@ -144,6 +142,17 @@ their signatures intact is required during tool-use loops (the assistant
 turn that produced a `tool_use` block must include any preceding thinking
 blocks when its `tool_result` is delivered) and recommended in other
 multi-turn scenarios.
+
+### SDK-Native Message Representation
+
+The form in which a message is represented by the Anthropic Go SDK (E2.2):
+a typed value whose structure mirrors the Anthropic Messages API's
+request/response shape, including content blocks for text, tool use, tool
+result, and thinking (with their `signature` fields). The library uses this
+representation as the type returned by the Agent's conversation read
+operation and as the input format accepted by the resumption constructor,
+so applications can persist conversations and round-trip them through the
+library without any library-defined wrapper format.
 
 ### Effort
 

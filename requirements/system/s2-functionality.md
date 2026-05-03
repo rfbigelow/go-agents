@@ -57,16 +57,16 @@ Types: AGENT
 
 Creators:
   new_agent: COMPLETER × TOOL_REGISTRY × CONFIG → AGENT
-  new_agent_with_history: COMPLETER × TOOL_REGISTRY × CONFIG × LIST[MESSAGE] → AGENT ∪ ERROR
+  new_agent_with_history: COMPLETER × TOOL_REGISTRY × CONFIG × LIST[MESSAGE] → AGENT
 
 Commands:
   run: AGENT × MESSAGE → AGENT
 
 Queries:
-  conversation: AGENT → CONVERSATION_STATE
+  messages: AGENT → LIST[MESSAGE]
 
 Preconditions:
-  new_agent_with_history(c, r, cfg, msgs): msgs satisfies the four S2.15 invariants
+  new_agent_with_history(c, r, cfg, msgs): msgs satisfies the five S2.15 invariants
 ```
 
 The Agent's mutable state is its conversation history. Each `run` appends
@@ -75,10 +75,17 @@ dispatching tools, repeating as needed), appends all resulting messages
 (assistant responses, tool results), and returns the updated Agent. The
 response is delivered incrementally via the event stream during the run.
 
+`messages` returns the conversation history in the SDK-native message
+representation (E1). It is the inverse of `new_agent_with_history`: the
+list returned from `messages` may be persisted by the application and,
+when later passed unchanged to `new_agent_with_history`, yields an Agent
+whose conversation is equivalent to the original (S2.6, S2.15).
+
 `new_agent_with_history` constructs an Agent whose initial conversation is the
-supplied message list (S2.15). When the precondition is violated, construction
-yields an ERROR identifying the failing invariant rather than an Agent;
-`new_agent_with_history(c, r, cfg, [])` is equivalent to `new_agent(c, r, cfg)`.
+supplied message list (S2.15). The precondition encodes the five resumption
+invariants; S2.15 specifies how implementations report precondition violations
+to the caller. `new_agent_with_history(c, r, cfg, [])` is equivalent to
+`new_agent(c, r, cfg)`.
 
 **Configuration (CONFIG):**
 
@@ -95,11 +102,11 @@ yields an ERROR identifying the failing invariant rather than an Agent;
 **Command-query table:**
 
 ```
-                                        | conversation
+                                        | messages
 ----------------------------------------+---------------------------------------------------------------
-new_agent                               | empty (no messages)
+new_agent                               | empty list
 new_agent_with_history(c, r, cfg, msgs) | msgs (when validation passes)
-run(a, msg)                             | conversation(a) + user message + agentic loop messages
+run(a, msg)                             | messages(a) + user message + agentic loop messages
 ```
 
 `run` extends the conversation with the user message and all messages
@@ -571,10 +578,26 @@ time when a session is resumed from prior history.
 **Trigger:** Each turn in the agentic loop.
 **Inputs:** New messages generated during the conversation.
 **Outputs:** Updated conversation state available for the next LLM call.
-**Rules:** The library provides conversation state management with sensible
-defaults. The consuming application can control resource-significant aspects
-such as history bounds and compaction strategy (per E3.5) but does not need
-to manage message ordering or protocol compliance.
+**Rules:**
+- The library provides conversation state management with sensible defaults.
+  The consuming application can control resource-significant aspects such as
+  history bounds and compaction strategy (per E3.5) but does not need to
+  manage message ordering or protocol compliance.
+- The library exposes the conversation history through a read operation on
+  the Agent (`messages`, see S2.1) that returns the messages in the
+  SDK-native message representation (E1). This is the inverse of the
+  resumption constructor: a list returned from `messages`, passed unchanged
+  to `new_agent_with_history` (S2.15), yields an Agent whose conversation is
+  equivalent to the original. Applications use this round-trip to persist
+  and resume conversations using only previous types from the Anthropic Go
+  SDK (E2.2), with no library-defined wrapper format.
+- Committed conversation state never contains a turn with unresolved
+  `tool_use` blocks. Tool implementation panics are recovered and
+  converted to error `tool_result` blocks (S2.5), so their turns complete
+  normally. Approval-callback panics (S2.8) are not recovered, but the
+  partial turn is rolled back so committed state matches the last
+  completed turn. Lists returned by `messages` therefore always satisfy
+  the five S2.15 resumption invariants without read-side cleanup.
 **Relates to:** S1.4 (Conversation State), S2.15 (Conversation Resumption),
 E3.5 (Consumer Resource Control).
 
@@ -589,13 +612,13 @@ serialization format on disk, storage backend, retention policy — is the
 application's responsibility.
 **Trigger:** Application initialization for a resumed session.
 **Inputs:** Completer, Tool Registry, Config, and a list of prior messages in
-the same SDK-native representation that the conversation read interface
-returns (S2.6).
+the SDK-native message representation (E1) — the same form returned by the
+Agent's `messages` query (S2.1, S2.6).
 **Outputs:** A configured Agent whose conversation state is initialized to the
 supplied history, ready to run; or an error identifying which validation rule
 the history violates.
 **Rules:**
-- Construction validates the history against four invariants:
+- Construction validates the history against five invariants:
   1. The history is empty, or ends with an assistant message (so the next
      `run` can append a user message without breaking alternation).
   2. User and assistant messages alternate.
@@ -603,6 +626,14 @@ the history violates.
      tool-use ID) in the immediately following user message.
   4. No `tool_result` block appears without a preceding `tool_use` for the
      same ID.
+  5. If the history ends with an assistant message, that message contains
+     no `tool_use` blocks. (A trailing assistant message with unresolved
+     `tool_use` blocks is not resumable: the next operation must be a user
+     message, but the protocol requires the next message to provide
+     `tool_result` blocks for the unresolved IDs. Lists produced by
+     `messages` (S2.6) satisfy this invariant by construction because the
+     library does not commit partial turns; the invariant validates
+     application-constructed histories.)
 - Validation failure is a constructor error — no Agent is produced and no
   partial state is retained. The error identifies the failing rule.
 - An empty history is valid; passing an empty history is equivalent to the
@@ -612,17 +643,18 @@ the history violates.
 - The library checks structural and protocol-level invariants only. It does
   not verify that the history was produced by this library or by any
   particular model.
-- The SDK-native message representation must remain the persistence wire
-  format as the library evolves. Future capabilities that change the
-  in-memory representation (e.g., compaction per E1) must preserve
-  round-tripping through that representation.
+- The SDK-native message representation (E1) must remain the format
+  returned by `messages` and accepted by `new_agent_with_history` as the
+  library evolves. Future capabilities that change the in-memory
+  representation (e.g., compaction per E1) must preserve round-tripping
+  through that representation.
 - Assistant messages may contain `thinking` blocks (S2.9). These are part
   of the SDK-native representation and must be persisted and restored
   verbatim, including their opaque `signature` fields. An assistant
   message that contains both `thinking` and `tool_use` blocks must be
   resumed with both intact; dropping its thinking blocks would produce a
   history that violates the Anthropic API's tool-use protocol on the next
-  turn. The four invariants above are message-structure invariants and do
+  turn. The five invariants above are message-structure invariants and do
   not separately validate the content of thinking blocks.
 **Relates to:** S1.4 (Conversation State), S2.1 (Agent Creation), S2.6
 (Conversation State Management), S2.9 (Extended Thinking), S2.11

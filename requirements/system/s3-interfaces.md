@@ -10,7 +10,9 @@ are Go API surfaces consumed by application code.
 **Type:** Go package API
 **Consumers:** Agent application developers (G7.2).
 **Key operations:** Create an Agent, configure capabilities, register tools,
-run a conversation, receive streamed responses.
+run a conversation, receive streamed responses, read the conversation
+history in the SDK-native message representation (for persistence and
+resumption per S2.6, S2.15).
 **Key characteristics:** Idiomatic Go (context propagation, error returns,
 interfaces). Progressive disclosure — simple use cases require minimal
 configuration.

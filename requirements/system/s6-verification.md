@@ -205,21 +205,40 @@ modes, the streaming surface, and multi-turn preservation.
 
 ### S6.24: Conversation Resumption
 
-**Verifies:** S2.15
-**Method:** Test with mocked API responses, exercising both successful resume
-and rejection of malformed histories.
-**Pass condition:** An Agent constructed with a valid prior history (empty, or
-ending with an assistant message and otherwise satisfying the four S2.15
-invariants) initializes its conversation state to that history; a subsequent
-`run` extends from the supplied history and the API request includes the prior
-messages. An Agent constructed with each of the following malformed histories
-yields a constructor error identifying the violated rule, and no Agent is
-returned: (1) a history ending with a user message; (2) a history with two
-consecutive same-role messages; (3) a history containing an assistant
-`tool_use` block whose ID has no matching `tool_result` in the immediately
-following user message; (4) a history containing a `tool_result` block whose
-ID has no preceding `tool_use`. An empty history is accepted and yields an
-Agent equivalent to one created via the basic constructor.
+**Verifies:** S2.15, S2.6 (round-trip contract)
+**Method:** Test with mocked API responses, exercising successful resume,
+round-trip through the read interface, and rejection of malformed histories.
+**Pass condition:**
+- An Agent constructed with a valid prior history (empty, or ending with an
+  assistant message and otherwise satisfying the five S2.15 invariants)
+  initializes its conversation state to that history; a subsequent `run`
+  extends from the supplied history and the API request includes the prior
+  messages.
+- An empty history is accepted and yields an Agent equivalent to one created
+  via the basic constructor.
+- Round-trip through the read interface: for an Agent A produced by any
+  combination of `new_agent` and one or more `run` calls, constructing
+  Agent B via `new_agent_with_history(c, r, cfg, messages(A))` succeeds and
+  satisfies `messages(B) = messages(A)`. The round-trip is exercised against
+  histories that include text-only assistant turns and tool-use turns.
+- Thinking-bearing turn round-trip: for a history whose assistant turn
+  contains both `thinking` blocks (with non-empty `signature` fields) and
+  `tool_use` blocks, construction succeeds, `messages` on the resulting
+  Agent returns the supplied history with the thinking blocks intact and
+  signatures unchanged, and the next Completer request — the one carrying
+  the corresponding `tool_result` — includes those thinking blocks ahead of
+  any later content with their signatures unchanged.
+- An Agent constructed with each of the following malformed histories
+  yields a constructor error identifying the violated rule, and no Agent
+  is returned:
+  (1) a history ending with a user message;
+  (2) a history with two consecutive same-role messages;
+  (3) a history containing an assistant `tool_use` block whose ID has no
+      matching `tool_result` in the immediately following user message;
+  (4) a history containing a `tool_result` block whose ID has no preceding
+      `tool_use`;
+  (5) a history ending with an assistant message that contains one or
+      more `tool_use` blocks.
 
 ## Non-Functional Verification
 
@@ -308,7 +327,7 @@ loop in span output.
 | S2.3 | S6.1, S6.15 |
 | S2.4 | S6.2, S6.21, S6.15, S6.23 |
 | S2.5 | S6.2, S6.5, S6.6, S6.7, S6.18, S6.19, S6.20, S6.15, S6.23 |
-| S2.6 | S6.1, S6.15 |
+| S2.6 | S6.1, S6.15, S6.24 (round-trip rule) |
 | S2.7 | S6.8, S6.9 |
 | S2.8 | S6.18, S6.19, S6.20, S6.21, S6.22, S6.23 |
 | S2.9 | S6.25 |
