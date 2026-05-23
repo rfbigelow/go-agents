@@ -173,3 +173,69 @@ registered.
 - **Missing approval callback:** A setup-time error, not a runtime case.
   Registering a HITL-flagged tool without an approval callback on the Tool
   Registry fails at registration (S2.4, S6.21).
+
+## S4.6: Deterministic Hooks — Modification, Substitution, and Abort
+
+**Elaborates:** G5.8
+**Preconditions:** Agent created with one or more hook handlers registered
+(S2.10). An approval callback (S2.8) may also be registered.
+**Actor:** Library consumer (G7.2)
+
+**Main flow:**
+
+1. The consumer sends a user message describing a task.
+2. The Agent enters the agentic loop (S2.2). Before each LLM call, the
+   registered `PreLLMCall` hook fires synchronously and returns `Continue`;
+   the LLM call proceeds with the original payload.
+3. The LLM requests a tool call. The registered `PreToolUse` hook fires
+   synchronously and returns `Continue`. If the tool is HITL-flagged, the
+   approval callback runs next, the human approves, and the tool executes
+   (S2.5).
+4. After the tool executes, the registered `PostToolUse` hook fires
+   synchronously and returns `Continue`. The tool result is appended to
+   conversation state and sent to the LLM in the next turn.
+5. The loop continues until the LLM produces a final response.
+
+**Alternate flows:**
+
+- **Argument rewriting:** A `PreToolUse` hook returns `Modify` with rewritten
+  arguments (e.g., normalizing a path, injecting a tenant ID). The tool
+  executes with the modified arguments. If the tool is HITL-flagged, the
+  approval callback runs after the hook and sees the modified arguments.
+- **Cached result substitution:** A `PreToolUse` hook returns `Substitute`
+  with a cached tool result. The tool implementation is not invoked. The
+  synthetic result propagates through `PostToolUse` with `Synthesized: true`,
+  is appended to conversation state, and is sent to the LLM. The HITL
+  approval callback is not invoked for substituted calls.
+- **Result redaction:** A `PostToolUse` hook returns `Modify` with a redacted
+  result (e.g., scrubbing secrets before the LLM sees them). The redacted
+  result is sent to the LLM. If `PreToolUse` had returned `Substitute`, the
+  `Synthesized: true` flag survives the redaction.
+- **Message rewriting:** A `PreLLMCall` hook returns `Modify` with a
+  rewritten message list (e.g., summarizing prior turns, redacting earlier
+  inputs). The Completer receives the rewritten payload.
+- **Synthetic assistant response:** A `PreLLMCall` hook returns `Substitute`
+  with a synthetic assistant message (e.g., a canned response for a known-bad
+  input). The Completer is not invoked. The synthetic message is processed by
+  the loop as if it were the LLM's response, including any tool-use blocks it
+  contains.
+
+**Error cases:**
+
+- **Hook-requested abort:** A hook returns `Abort` carrying a reason (e.g.,
+  policy violation). `run` returns the reason wrapped to identify it as a
+  hook-requested abort. Conversation state is preserved up to the last
+  completed turn.
+- **Hook handler failure:** A hook returns a non-nil error alongside its
+  decision (e.g., dependency unreachable). `run` discards the decision and
+  returns the error wrapped to identify it as a hook handler failure.
+  Conversation state is preserved up to the last completed turn.
+- **Hook handler panic:** A hook panics. The Agent does not recover. `run`
+  returns the panic wrapped to identify it as a hook handler panic.
+  Conversation state is preserved up to the last completed turn. Rationale
+  matches S2.8: a broken loop-level handler is a safety issue, not a
+  recoverable one.
+- **HITL ordering at PreToolUse:** When both a `PreToolUseHook` and an
+  approval callback are registered, the hook fires first. A `Substitute` or
+  `Abort` decision short-circuits before the approval callback runs (S2.8 is
+  not consulted).

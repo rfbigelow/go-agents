@@ -320,7 +320,7 @@ loop in span output.
 
 ### S6.27: PreLLMCall Hook Decisions
 
-**Verifies:** S2.10
+**Verifies:** S2.10, S4.6 (message rewriting, synthetic assistant response)
 **Method:** Test with mocked API responses and a `PreLLMCallHook` handler,
 exercising each decision variant.
 **Pass condition:**
@@ -339,7 +339,8 @@ exercising each decision variant.
 
 ### S6.28: PreToolUse Hook and HITL Ordering
 
-**Verifies:** S2.10, S2.8
+**Verifies:** S2.10, S2.8, S4.6 (argument rewriting, cached result
+substitution, HITL ordering at PreToolUse)
 **Method:** Test with mocked API responses requesting tool calls, a
 `PreToolUseHook` handler, and (for the ordering case) a HITL-flagged
 tool with an approval callback.
@@ -362,7 +363,7 @@ tool with an approval callback.
 
 ### S6.29: PostToolUse Hook and Synthesized Flag Propagation
 
-**Verifies:** S2.10
+**Verifies:** S2.10, S4.6 (result redaction, Synthesized stickiness)
 **Method:** Test with mocked API responses requesting tool calls and a
 `PostToolUseHook` handler, exercising decision variants and observing
 the `Synthesized` flag across `PreToolUse → PostToolUse`.
@@ -380,7 +381,7 @@ the `Synthesized` flag across `PreToolUse → PostToolUse`.
 
 ### S6.30: Hook Handler Panic Propagation
 
-**Verifies:** S2.10
+**Verifies:** S2.10, S4.6 (hook handler panic)
 **Method:** Test with mocked API responses and a handler at each hook
 point (`PreLLMCall`, `PreToolUse`, `PostToolUse`) that panics.
 **Pass condition:** The Agent does not recover the panic. `run` returns
@@ -393,7 +394,7 @@ the panic details (per S2.13).
 
 ### S6.31: Hook Handler Error Return
 
-**Verifies:** S2.10
+**Verifies:** S2.10, S4.6 (hook handler failure)
 **Method:** Test with mocked API responses and a handler at each hook
 point (`PreLLMCall`, `PreToolUse`, `PostToolUse`) that returns a non-nil
 error alongside its decision.

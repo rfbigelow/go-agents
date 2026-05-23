@@ -116,6 +116,31 @@ the Anthropic effort parameter.
    and conversation interfaces as before; effort changes the shape of the
    response without changing the library's surface.
 
+## G5.8: Hooking the Agent Loop for Deterministic Logic
+
+**Actor:** Library consumer (G7.2)
+
+**Goal:** Inject deterministic (non-LLM) logic into the agentic loop —
+validating LLM requests, transforming tool arguments, substituting cached
+results, redacting tool outputs, or enforcing policy — without modifying the
+loop itself.
+
+**Steps:**
+
+1. The developer creates an Agent and, alongside tool registration, registers
+   one or more hook handlers at the points the application needs to interpose:
+   `PreLLMCall`, `PreToolUse`, or `PostToolUse`. Each hook is a typed handler
+   with a typed decision return.
+2. The developer sends a user message describing a task. The agentic loop runs
+   as usual.
+3. At each defined point, the Agent invokes the registered hook synchronously
+   and acts on the returned decision: `Continue` (proceed), `Modify` (proceed
+   with a rewritten payload), `Substitute` (skip the underlying operation, use
+   a supplied result), or `Abort` (stop the run with a reason).
+4. The developer receives the final response. Hook effects show up in
+   conversation state, tool execution, and the `Synthesized` flag on tool
+   results where applicable.
+
 ## G5.5: Agent Reuse Across Conversations (Future)
 
 **Actor:** Library consumer (G7.2)
