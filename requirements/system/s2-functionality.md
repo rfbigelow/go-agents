@@ -61,19 +61,22 @@ Creators:
 
 Commands:
   run: AGENT × MESSAGE → AGENT
+  with_hooks: AGENT × HOOK_BUNDLE → AGENT
 
 Queries:
   messages: AGENT → LIST[MESSAGE]
+  hooks: AGENT → HOOK_BUNDLE
 
 Preconditions:
   new_agent_with_history(c, r, cfg, msgs): msgs satisfies the five S2.15 invariants
 ```
 
-The Agent's mutable state is its conversation history. Each `run` appends
-the user message, drives the agentic loop (calling the Completer,
-dispatching tools, repeating as needed), appends all resulting messages
-(assistant responses, tool results), and returns the updated Agent. The
-response is delivered incrementally via the event stream during the run.
+The Agent's mutable state is its conversation history and its hook bundle.
+Each `run` appends the user message, drives the agentic loop (calling the
+Completer, dispatching tools, repeating as needed), appends all resulting
+messages (assistant responses, tool results), and returns the updated
+Agent. The response is delivered incrementally via the event stream during
+the run. `run` leaves the hook bundle unchanged.
 
 `messages` returns the conversation history in the SDK-native message
 representation (E1). It is the inverse of `new_agent_with_history`: the
@@ -86,6 +89,15 @@ supplied message list (S2.15). The precondition encodes the five resumption
 invariants; S2.15 specifies how implementations report precondition violations
 to the caller. `new_agent_with_history(c, r, cfg, [])` is equivalent to
 `new_agent(c, r, cfg)`.
+
+`with_hooks` replaces the Agent's hook bundle in full and returns the
+updated Agent (S2.10). A HOOK_BUNDLE is a record carrying optional
+handlers for the three hook points: `pre_llm_call`, `pre_tool_use`, and
+`post_tool_use`. Any subset of handlers may be present; an empty bundle
+(the default on newly-constructed Agents) means no hooks fire. There is
+no partial-update command; replacing the bundle is the only way to change
+hooks. Hooks may be set or replaced at any time, including between `run`
+calls; the agentic loop reads the current bundle at each hook point.
 
 **Configuration (CONFIG):**
 
@@ -102,11 +114,12 @@ to the caller. `new_agent_with_history(c, r, cfg, [])` is equivalent to
 **Command-query table:**
 
 ```
-                                        | messages
-----------------------------------------+---------------------------------------------------------------
-new_agent                               | empty list
-new_agent_with_history(c, r, cfg, msgs) | msgs (when validation passes)
-run(a, msg)                             | messages(a) + user message + agentic loop messages
+                                        | messages                                            | hooks
+----------------------------------------+-----------------------------------------------------+--------------
+new_agent                               | empty list                                          | empty bundle
+new_agent_with_history(c, r, cfg, msgs) | msgs (when validation passes)                       | empty bundle
+run(a, msg)                             | messages(a) + user message + agentic loop messages  | hooks(a)
+with_hooks(a, hb)                       | messages(a)                                         | hb
 ```
 
 `run` extends the conversation with the user message and all messages
@@ -285,8 +298,9 @@ The Agent invokes the registered hook at each defined point and acts on the
 returned decision. Hooks fire synchronously and block the loop until they
 return.
 
-**Trigger:** Agent configuration registers one or more hook handlers; the
-corresponding event point is reached during loop execution.
+**Trigger:** The application registers one or more hook handlers via
+`with_hooks` (see Agent ADT); the corresponding event point is reached
+during loop execution.
 **Inputs:** Per-hook event payload — the message list and call parameters at
 `PreLLMCall`, the tool name and arguments at `PreToolUse`, the tool result
 at `PostToolUse`.
