@@ -56,7 +56,9 @@ No requirements currently at this level.
 - S2.2 depends on S2.5 for tool-using agents, but a no-tool agent can run
   without it.
 - S2.8 (HITL), S2.9 (extended thinking), and S2.10 (deterministic logic) each
-  depend on S2.2 but are independent of each other.
+  depend on S2.2 and are independent of each other for implementation order.
+  When both S2.8 and S2.10 apply to the same tool call, the deterministic hook
+  fires before the HITL approval gate (see S2.10).
 - S2.11 (sub-agent composition) depends on S2.2 and S2.5 (a sub-agent is
   invoked as a tool).
 - S2.15 (conversation resumption) depends on S2.1 (agent creation) and S2.6

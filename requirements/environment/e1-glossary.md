@@ -181,6 +181,30 @@ HITL-flagged Tool Call may proceed. Receives the tool name and arguments
 and returns a binary approve/deny decision. Blocks the agentic loop
 inline until the decision is made. See Human-in-the-Loop (HITL).
 
+### Hook
+
+A typed handler registered with an Agent that interposes on a specific
+point in the agentic loop, allowing deterministic (non-LLM) logic to
+influence loop behavior. Each hook point has its own typed handler
+interface and its own typed decision return. At most one handler may be
+registered per hook point. Hooks fire synchronously and block the loop
+until they return; observation surfaces (streaming, tracing, structured
+logging) are separate and do not mutate the loop. Distinguished from an
+Approval Callback (which addresses a human) — a Hook addresses
+in-process deterministic logic.
+
+### Hook Decision
+
+The typed value a Hook handler returns to tell the Agent how to proceed
+at that hook point. The legal moves are `Continue` (proceed with the
+original payload), `Modify` (proceed with a rewritten payload),
+`Substitute` (skip the underlying operation and use the supplied
+synthetic result), and `Abort` (terminate the run, carrying a
+reason value the loop returns wrapped as a hook-requested abort). Each hook point's decision type is a sealed interface
+enumerating only the moves legal at that point — for example, the
+PostToolUse decision type does not offer `Substitute`, since the tool
+has already executed.
+
 ### Memory Tool
 
 A tool that gives an agent access to persistent knowledge across conversations —

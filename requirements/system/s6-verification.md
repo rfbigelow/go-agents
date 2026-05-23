@@ -318,6 +318,92 @@ library's own instrumentation (S2.12) and verified by S6.16; the example does
 not need to wire up an OTEL exporter, which would drown the interactive chat
 loop in span output.
 
+### S6.27: PreLLMCall Hook Decisions
+
+**Verifies:** S2.10
+**Method:** Test with mocked API responses and a `PreLLMCallHook` handler,
+exercising each decision variant.
+**Pass condition:**
+- With a handler returning `Continue`, the Completer receives the original
+  message list and call parameters unchanged.
+- With a handler returning `Modify` carrying a rewritten message list or
+  call parameters, the Completer receives the rewritten payload.
+- With a handler returning `Substitute` carrying a synthetic assistant
+  message, the Completer is not invoked. The synthetic message is appended
+  to conversation state and processed by the agentic loop as if it were
+  the LLM's response, including any tool-use blocks it contains.
+- With a handler returning `Abort` carrying a reason, `run` returns that
+  reason wrapped to identify it as a hook-requested abort. Conversation
+  state is preserved up to the last completed turn — the partial turn that
+  invoked the hook is not retained.
+
+### S6.28: PreToolUse Hook and HITL Ordering
+
+**Verifies:** S2.10, S2.8
+**Method:** Test with mocked API responses requesting tool calls, a
+`PreToolUseHook` handler, and (for the ordering case) a HITL-flagged
+tool with an approval callback.
+**Pass condition:**
+- With a handler returning `Continue` for a non-HITL tool, the tool
+  executes with the original arguments.
+- With a handler returning `Modify` carrying rewritten arguments, the
+  tool executes with the modified arguments.
+- With a handler returning `Substitute` carrying a synthetic tool result,
+  the tool implementation is not invoked. The synthetic result is sent
+  back to the LLM and carries `Synthesized: true` when observed at
+  `PostToolUse` and in tracing/logging.
+- With a handler returning `Abort` carrying a reason, `run` returns that
+  reason wrapped to identify it as a hook-requested abort. Conversation
+  state is preserved up to the last completed turn.
+- For a HITL-flagged tool with both a `PreToolUseHook` and an approval
+  callback registered: the hook fires first. The approval callback is
+  invoked only when the hook returns `Continue` or `Modify`. `Substitute`
+  and `Abort` short-circuit before the approval callback runs.
+
+### S6.29: PostToolUse Hook and Synthesized Flag Propagation
+
+**Verifies:** S2.10
+**Method:** Test with mocked API responses requesting tool calls and a
+`PostToolUseHook` handler, exercising decision variants and observing
+the `Synthesized` flag across `PreToolUse → PostToolUse`.
+**Pass condition:**
+- With a handler returning `Continue`, the original tool result is sent
+  back to the LLM unchanged.
+- With a handler returning `Modify` carrying a rewritten result, the
+  modified result is sent back to the LLM.
+- With a handler returning `Abort` carrying a reason, `run` returns that
+  reason wrapped to identify it as a hook-requested abort. Conversation
+  state is preserved up to the last completed turn.
+- When `PreToolUse` returned `Substitute`, `PostToolUse` is invoked with
+  `Synthesized: true` on the result. A subsequent `Modify` at
+  `PostToolUse` preserves `Synthesized: true` on the rewritten result.
+
+### S6.30: Hook Handler Panic Propagation
+
+**Verifies:** S2.10
+**Method:** Test with mocked API responses and a handler at each hook
+point (`PreLLMCall`, `PreToolUse`, `PostToolUse`) that panics.
+**Pass condition:** The Agent does not recover the panic. `run` returns
+an error wrapped to identify it as a hook handler panic, distinguishable
+(via `errors.As` against the wrapper type) from a hook-requested abort
+(S6.27/S6.28/S6.29) and from a hook handler failure (S6.31). Conversation
+state is preserved up to the turn before the hook invocation — the
+partial turn in which the hook fired is not retained. Log output includes
+the panic details (per S2.13).
+
+### S6.31: Hook Handler Error Return
+
+**Verifies:** S2.10
+**Method:** Test with mocked API responses and a handler at each hook
+point (`PreLLMCall`, `PreToolUse`, `PostToolUse`) that returns a non-nil
+error alongside its decision.
+**Pass condition:** The Agent discards the returned decision and `run`
+returns the error wrapped to identify it as a hook handler failure,
+distinguishable (via `errors.As` against the wrapper type) from a
+hook-requested abort (S6.27/S6.28/S6.29) and from a hook handler panic
+(S6.30). Conversation state is preserved up to the last completed turn —
+the partial turn that invoked the hook is not retained.
+
 ## Verification Coverage
 
 | Requirement | Verified by |
@@ -329,9 +415,9 @@ loop in span output.
 | S2.5 | S6.2, S6.5, S6.6, S6.7, S6.18, S6.19, S6.20, S6.15, S6.23 |
 | S2.6 | S6.1, S6.15, S6.24 (round-trip rule) |
 | S2.7 | S6.8, S6.9 |
-| S2.8 | S6.18, S6.19, S6.20, S6.21, S6.22, S6.23 |
+| S2.8 | S6.18, S6.19, S6.20, S6.21, S6.22, S6.23, S6.28 |
 | S2.9 | S6.25 |
-| S2.10 | <!-- TODO: Add when deterministic logic is elaborated --> |
+| S2.10 | S6.27, S6.28, S6.29, S6.30, S6.31 |
 | S2.11 | S6.10, S6.11, S6.12 |
 | S2.12 | S6.16, S6.14 |
 | S2.13 | S6.17 |

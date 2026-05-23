@@ -274,11 +274,71 @@ Output Effort).
 
 #### S2.10: Deterministic Logic
 
-**Description:** The Agent can incorporate deterministic (non-LLM) logic
-steps within a workflow — e.g., validation, transformation, or routing
-that does not require LLM inference.
-**Trigger:** Agent configuration includes deterministic steps.
-**Relates to:** S2.2 (Agentic Loop).
+**Description:** Applications can register typed handlers that interpose on
+specific points in the agentic loop, allowing deterministic (non-LLM) logic
+— validation, transformation, routing, caching, policy enforcement — to
+influence loop behavior without going through the LLM. Three hook points
+are defined: `PreLLMCall`, `PreToolUse`, and `PostToolUse`. Each hook point
+has its own typed handler interface and its own typed decision return.
+
+The Agent invokes the registered hook at each defined point and acts on the
+returned decision. Hooks fire synchronously and block the loop until they
+return.
+
+**Trigger:** Agent configuration registers one or more hook handlers; the
+corresponding event point is reached during loop execution.
+**Inputs:** Per-hook event payload — the message list and call parameters at
+`PreLLMCall`, the tool name and arguments at `PreToolUse`, the tool result
+at `PostToolUse`.
+**Outputs:** A typed decision indicating how the loop should proceed:
+`Continue` (proceed with the original payload), `Modify` (proceed with a
+rewritten payload), `Substitute` (skip the underlying operation and use
+the supplied synthetic result), or `Abort` (terminate the run, carrying
+a reason value as the abort's payload). The handler signature is
+`(Decision, error)`: a non-nil error return indicates the handler itself
+malfunctioned and could not produce a decision; `Abort` is the only
+decision that carries a reason — it expresses an *intentional* stop,
+distinct from a malfunction.
+**Rules:**
+- Each hook point has its own typed handler interface and its own sealed
+  decision type enumerating the moves legal at that point. `PostToolUse`
+  does not offer `Substitute` — the tool has already executed.
+- At most one handler may be registered per hook. Multi-handler composition
+  is out of scope; observability composition is served by S2.3 (streaming),
+  S2.12 (tracing), and S2.13 (logging).
+- At `PreToolUse`, the deterministic hook fires before the HITL approval
+  gate (S2.8). HITL is consulted only if the hook returned `Continue` or
+  `Modify`. `Substitute` or `Abort` short-circuits before the human is
+  bothered.
+- When `PreToolUse` returns `Substitute`, the synthetic result still
+  propagates through `PostToolUse` and through tracing/logging, carrying a
+  `Synthesized: true` flag so observers can distinguish executed results
+  from synthesized ones. The flag is sticky — a subsequent `Modify` at
+  `PostToolUse` does not clear it.
+- On `Abort`, the loop returns the reason carried by the `Abort` decision,
+  wrapped to identify it as a hook-requested abort. Conversation state is
+  preserved up to the last completed turn, matching the HITL panic
+  invariant in S2.8. The partial turn that invoked the hook is not
+  retained.
+- A non-nil error returned alongside the decision indicates the handler
+  malfunctioned (e.g., dependency unreachable, internal bug). The loop
+  discards the decision and returns the error wrapped to identify it as a
+  hook handler failure. Conversation state is preserved up to the last
+  completed turn.
+- If a hook handler panics, the Agent does not recover. The panic
+  propagates as a fatal error from `run`, wrapped to identify it as a
+  hook handler panic. State is preserved up to the last completed turn
+  (same rule as S2.8).
+- The library imposes no timeout on hook execution; cancellation is via
+  the `context.Context` passed to `run`. Hooks are expected to be fast
+  (machine-speed deterministic logic, not user prompts — see S2.8 for the
+  human-latency contract).
+- Per-turn-boundary observation is not within scope of S2.10. Applications
+  needing turn-boundary signals use S2.12 (tracing) or S2.13 (logging);
+  S2.3 emits chunk-granular events, not turn boundaries.
+**Relates to:** S2.2 (Agentic Loop), S2.5 (Tool Dispatch), S2.8 (HITL —
+ordering at PreToolUse), S2.3 (Streaming), S2.12 (Tracing), S2.13
+(Logging), S1.1 (Agent), S1.3 (Tool Registry).
 
 #### S2.11: Sub-Agent Composition
 
