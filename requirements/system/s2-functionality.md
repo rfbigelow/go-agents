@@ -475,7 +475,7 @@ complete response message contains:
 | Field | Description |
 |-------|-------------|
 | content | Ordered list of content blocks (text, tool use, thinking) |
-| stop_reason | Why the model stopped: end_turn, tool_use, max_tokens |
+| stop_reason | Why the model stopped: end_turn, tool_use, max_tokens, stop_sequence, pause_turn, refusal |
 | usage | Token counts (input, output) |
 
 **Command-query table:**
