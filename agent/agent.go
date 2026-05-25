@@ -150,6 +150,8 @@ func (a *Agent) Run(ctx context.Context, message string, handler EventHandler) e
 					"turn_count", turns,
 					"input_tokens", response.Usage.InputTokens,
 					"output_tokens", response.Usage.OutputTokens,
+					"cache_creation_input_tokens", response.Usage.CacheCreationInputTokens,
+					"cache_read_input_tokens", response.Usage.CacheReadInputTokens,
 				)...,
 			)
 			return nil
@@ -230,6 +232,16 @@ func (a *Agent) buildRequest() CompletionRequest {
 		req.Effort = a.config.Effort
 	}
 
+	if !a.config.DisablePromptCaching {
+		cc := anthropic.NewCacheControlEphemeralParam()
+		if len(req.System) > 0 {
+			req.System[len(req.System)-1].CacheControl = cc
+		}
+		if len(req.Tools) > 0 {
+			*req.Tools[len(req.Tools)-1].GetCacheControl() = cc
+		}
+	}
+
 	return req
 }
 
@@ -272,10 +284,17 @@ func (a *Agent) complete(ctx context.Context, req CompletionRequest, handler Eve
 		handler(Event{Type: EventDone})
 	}
 
+	span.SetAttributes(
+		attribute.Int64("agent.cache_creation_input_tokens", msg.Usage.CacheCreationInputTokens),
+		attribute.Int64("agent.cache_read_input_tokens", msg.Usage.CacheReadInputTokens),
+	)
+
 	a.log.DebugContext(ctx, "llm call completed",
 		logArgs(ctx,
 			"stop_reason", string(msg.StopReason),
 			"output_tokens", msg.Usage.OutputTokens,
+			"cache_creation_input_tokens", msg.Usage.CacheCreationInputTokens,
+			"cache_read_input_tokens", msg.Usage.CacheReadInputTokens,
 			"turn", turn,
 		)...,
 	)

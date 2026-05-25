@@ -212,6 +212,22 @@ e.g., facts learned in prior sessions, user preferences, or accumulated context.
 Not currently in scope; identified as a future capability that would enable
 agent reuse across conversations.
 
+### Prompt Caching
+
+The Anthropic API's ability to cache and reuse the processed prefix of a
+request across API calls, reducing input token costs and latency for
+subsequent calls that share the same prefix (system prompt, tool
+definitions, and earlier conversation turns). The API reports cache usage
+through token metrics in the response: cache_creation_input_tokens (tokens
+used to populate the cache) and cache_read_input_tokens (tokens served
+from cache instead of reprocessed).
+
+### Cache Control Breakpoint
+
+A marker placed on a content block (system text block, tool definition) in
+an Anthropic API request that tells the API to cache all content up to and
+including that block.
+
 ### Progressive Capability
 
 A design approach where an Agent starts with minimal functionality (simple

@@ -5,9 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"testing"
 
 	"github.com/anthropics/anthropic-sdk-go"
+	"go.opentelemetry.io/otel"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
 // scriptedResponse describes one Completer.Complete result. For the
@@ -16,10 +20,12 @@ import (
 // to prepend an Extended Thinking block to the assistant message and
 // surface thinking_delta / signature_delta events through the stream.
 type scriptedResponse struct {
-	Text      string
-	ToolCalls []scriptedToolCall
-	Thinking  string
-	Signature string
+	Text                     string
+	ToolCalls                []scriptedToolCall
+	Thinking                 string
+	Signature                string
+	CacheCreationInputTokens int64
+	CacheReadInputTokens     int64
 }
 
 type scriptedToolCall struct {
@@ -72,7 +78,12 @@ func (m *mockCompleter) buildStream(r scriptedResponse) *EventStream {
 		ID:    "msg_test",
 		Role:  "assistant",
 		Model: "claude-sonnet-4-5",
-		Usage: anthropic.Usage{InputTokens: 10, OutputTokens: 5},
+		Usage: anthropic.Usage{
+			InputTokens:             10,
+			OutputTokens:            5,
+			CacheCreationInputTokens: r.CacheCreationInputTokens,
+			CacheReadInputTokens:     r.CacheReadInputTokens,
+		},
 	}
 
 	events := []testEvent{}
@@ -731,6 +742,241 @@ func TestAgent_Effort_IndependentOfThinking_Unset(t *testing.T) {
 	}
 	if req.Effort == nil || *req.Effort != "max" {
 		t.Errorf("Effort = %v, want pointer to \"max\"", req.Effort)
+	}
+}
+
+func TestAgent_PromptCaching_BreakpointPlacement(t *testing.T) {
+	t.Run("SystemAndTools", func(t *testing.T) {
+		mock := &mockCompleter{response: "ok"}
+		registry := NewToolRegistry()
+		mustRegister(t, registry, Tool{
+			Name:    "tool_a",
+			Execute: func(_ context.Context, _ json.RawMessage) (string, error) { return "", nil },
+		})
+		mustRegister(t, registry, Tool{
+			Name:    "tool_b",
+			Execute: func(_ context.Context, _ json.RawMessage) (string, error) { return "", nil },
+		})
+		a := NewAgent(mock, registry, Config{
+			Model: "claude-sonnet-4-5", MaxTokens: 100, System: "You are helpful.",
+		})
+
+		if err := a.Run(context.Background(), "hi", nil); err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+		req := mock.capturedRequests[0]
+		if len(req.System) == 0 {
+			t.Fatal("expected system blocks")
+		}
+		if req.System[len(req.System)-1].CacheControl.Type != "ephemeral" {
+			t.Error("expected cache control on last system block")
+		}
+		if len(req.Tools) < 2 {
+			t.Fatal("expected at least 2 tools")
+		}
+		lastTool := req.Tools[len(req.Tools)-1].GetCacheControl()
+		if lastTool == nil || lastTool.Type != "ephemeral" {
+			t.Error("expected cache control on last tool")
+		}
+		firstTool := req.Tools[0].GetCacheControl()
+		if firstTool != nil && firstTool.Type == "ephemeral" {
+			t.Error("cache control should only be on the last tool, not the first")
+		}
+	})
+
+	t.Run("SystemOnly", func(t *testing.T) {
+		mock := &mockCompleter{response: "ok"}
+		a := NewAgent(mock, NewToolRegistry(), Config{
+			Model: "claude-sonnet-4-5", MaxTokens: 100, System: "You are helpful.",
+		})
+
+		if err := a.Run(context.Background(), "hi", nil); err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+		req := mock.capturedRequests[0]
+		if req.System[len(req.System)-1].CacheControl.Type != "ephemeral" {
+			t.Error("expected cache control on last system block")
+		}
+		if len(req.Tools) != 0 {
+			t.Error("expected no tools")
+		}
+	})
+
+	t.Run("ToolsOnly", func(t *testing.T) {
+		mock := &mockCompleter{response: "ok"}
+		registry := NewToolRegistry()
+		mustRegister(t, registry, Tool{
+			Name:    "tool_a",
+			Execute: func(_ context.Context, _ json.RawMessage) (string, error) { return "", nil },
+		})
+		a := NewAgent(mock, registry, Config{
+			Model: "claude-sonnet-4-5", MaxTokens: 100,
+		})
+
+		if err := a.Run(context.Background(), "hi", nil); err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+		req := mock.capturedRequests[0]
+		if len(req.System) != 0 {
+			t.Error("expected no system blocks")
+		}
+		lastTool := req.Tools[len(req.Tools)-1].GetCacheControl()
+		if lastTool == nil || lastTool.Type != "ephemeral" {
+			t.Error("expected cache control on last tool")
+		}
+	})
+
+	t.Run("Neither", func(t *testing.T) {
+		mock := &mockCompleter{response: "ok"}
+		a := NewAgent(mock, NewToolRegistry(), Config{
+			Model: "claude-sonnet-4-5", MaxTokens: 100,
+		})
+
+		if err := a.Run(context.Background(), "hi", nil); err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+		req := mock.capturedRequests[0]
+		if len(req.System) != 0 {
+			t.Error("expected no system blocks")
+		}
+		if len(req.Tools) != 0 {
+			t.Error("expected no tools")
+		}
+	})
+}
+
+func TestAgent_PromptCaching_Disabled(t *testing.T) {
+	mock := &mockCompleter{response: "ok"}
+	registry := NewToolRegistry()
+	mustRegister(t, registry, Tool{
+		Name:    "tool_a",
+		Execute: func(_ context.Context, _ json.RawMessage) (string, error) { return "", nil },
+	})
+	a := NewAgent(mock, registry, Config{
+		Model: "claude-sonnet-4-5", MaxTokens: 100, System: "You are helpful.",
+		DisablePromptCaching: true,
+	})
+
+	if err := a.Run(context.Background(), "hi", nil); err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	req := mock.capturedRequests[0]
+	if req.System[len(req.System)-1].CacheControl.Type == "ephemeral" {
+		t.Error("expected no cache control on system block when disabled")
+	}
+	lastTool := req.Tools[len(req.Tools)-1].GetCacheControl()
+	if lastTool != nil && lastTool.Type == "ephemeral" {
+		t.Error("expected no cache control on tool when disabled")
+	}
+}
+
+func TestAgent_PromptCaching_LogAttributes(t *testing.T) {
+	h := newCapturingHandler()
+	mock := &mockCompleter{
+		responses: []scriptedResponse{
+			{Text: "ok", CacheCreationInputTokens: 150, CacheReadInputTokens: 0},
+		},
+	}
+	a := NewAgent(mock, NewToolRegistry(), Config{
+		Model: "claude-sonnet-4-5", MaxTokens: 100, System: "You are helpful.",
+		Logger: slog.New(h),
+	})
+
+	if err := a.Run(context.Background(), "hi", nil); err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+
+	// Find the "llm call completed" debug record.
+	var found bool
+	for _, r := range h.records {
+		if r.Message != "llm call completed" {
+			continue
+		}
+		found = true
+		if v, ok := getAttr(r, "cache_creation_input_tokens"); !ok {
+			t.Error("missing cache_creation_input_tokens attr on llm call completed")
+		} else if v.Int64() != 150 {
+			t.Errorf("cache_creation_input_tokens = %d, want 150", v.Int64())
+		}
+		if v, ok := getAttr(r, "cache_read_input_tokens"); !ok {
+			t.Error("missing cache_read_input_tokens attr on llm call completed")
+		} else if v.Int64() != 0 {
+			t.Errorf("cache_read_input_tokens = %d, want 0", v.Int64())
+		}
+	}
+	if !found {
+		t.Fatal("did not find 'llm call completed' log record")
+	}
+
+	// Find the "run completed" info record.
+	found = false
+	for _, r := range h.records {
+		if r.Message != "run completed" {
+			continue
+		}
+		found = true
+		if v, ok := getAttr(r, "cache_creation_input_tokens"); !ok {
+			t.Error("missing cache_creation_input_tokens attr on run completed")
+		} else if v.Int64() != 150 {
+			t.Errorf("cache_creation_input_tokens = %d, want 150", v.Int64())
+		}
+		if v, ok := getAttr(r, "cache_read_input_tokens"); !ok {
+			t.Error("missing cache_read_input_tokens attr on run completed")
+		} else if v.Int64() != 0 {
+			t.Errorf("cache_read_input_tokens = %d, want 0", v.Int64())
+		}
+	}
+	if !found {
+		t.Fatal("did not find 'run completed' log record")
+	}
+}
+
+func TestAgent_PromptCaching_SpanAttributes(t *testing.T) {
+	exporter := tracetest.NewInMemoryExporter()
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
+	prev := otel.GetTracerProvider()
+	otel.SetTracerProvider(tp)
+	defer otel.SetTracerProvider(prev)
+
+	mock := &mockCompleter{
+		responses: []scriptedResponse{
+			{Text: "ok", CacheCreationInputTokens: 200, CacheReadInputTokens: 50},
+		},
+	}
+	a := NewAgent(mock, NewToolRegistry(), Config{
+		Model: "claude-sonnet-4-5", MaxTokens: 100, System: "You are helpful.",
+	})
+
+	if err := a.Run(context.Background(), "hi", nil); err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	tp.ForceFlush(context.Background())
+
+	spans := exporter.GetSpans()
+	var llmCallSpan *tracetest.SpanStub
+	for i := range spans {
+		if spans[i].Name == "agent.llm_call" {
+			llmCallSpan = &spans[i]
+			break
+		}
+	}
+	if llmCallSpan == nil {
+		t.Fatal("did not find agent.llm_call span")
+	}
+
+	attrMap := make(map[string]int64)
+	for _, a := range llmCallSpan.Attributes {
+		attrMap[string(a.Key)] = a.Value.AsInt64()
+	}
+	if v, ok := attrMap["agent.cache_creation_input_tokens"]; !ok {
+		t.Error("missing agent.cache_creation_input_tokens span attribute")
+	} else if v != 200 {
+		t.Errorf("agent.cache_creation_input_tokens = %d, want 200", v)
+	}
+	if v, ok := attrMap["agent.cache_read_input_tokens"]; !ok {
+		t.Error("missing agent.cache_read_input_tokens span attribute")
+	} else if v != 50 {
+		t.Errorf("agent.cache_read_input_tokens = %d, want 50", v)
 	}
 }
 

@@ -399,7 +399,8 @@ Span names follow a consistent naming convention (e.g., `agent.run`,
 `agent.llm_call`, `agent.tool.<name>`, `agent.sub_agent.<name>`).
 **Relates to:** E2.3 (OTEL Trace API), E3.5 (Consumer Resource Control),
 E6.1 (Application Controls Execution Flow), S2.2 (Agentic Loop),
-S2.5 (Tool Dispatch), S2.11 (Sub-Agent Composition).
+S2.5 (Tool Dispatch), S2.11 (Sub-Agent Composition), S2.17 (Prompt
+Caching).
 
 #### S2.13: Structured Logging
 
@@ -421,7 +422,51 @@ renamed without a major version bump, to support log-based alerting and
 parsing. When OTEL tracing is active, log entries
 include trace and span IDs as attributes to enable log-trace correlation.
 **Relates to:** E2.4 (slog), E3.5 (Consumer Resource Control), E6.1
-(Application Controls Execution Flow).
+(Application Controls Execution Flow), S2.17 (Prompt Caching).
+
+#### S2.17: Prompt Caching
+
+**Description:** The Agent optimizes multi-turn LLM requests by placing
+cache control breakpoints on the stable prefixes of each request — the
+system prompt and tool definitions — so the Anthropic API can cache and
+reuse them across turns within a run. Cache metrics from the API response
+(cache_creation_input_tokens, cache_read_input_tokens) are surfaced
+through the library's observability channels: as span attributes on the
+`agent.llm_call` span (S2.12) and as structured log attributes in the
+per-call log entry (S2.13).
+**Trigger:** Every LLM request built by the Agent during agentic loop
+execution.
+**Inputs:** Agent configuration (prompt caching enabled by default,
+opt-out via Config), system prompt and tool definitions from the current
+request.
+**Outputs:** Cache control breakpoints on the last system block and last
+tool definition in each request. Cache token metrics on per-call spans
+and log entries.
+**Rules:**
+- **Breakpoint placement.** The Agent places a cache control breakpoint
+  on the last element of the system prompt array and on the last element
+  of the tool definitions array. If only one is present, the breakpoint
+  is placed on whichever is present. If neither is present, no breakpoints
+  are placed.
+- **Enabled by default.** Prompt caching is active unless the consuming
+  application opts out via a configuration flag. When opted out, no cache
+  control breakpoints are placed; cache metrics are still reported from
+  the API response.
+- **Per-call metrics only.** Cache metrics are reported per LLM call, not
+  accumulated across turns. Each `agent.llm_call` span carries
+  `agent.cache_creation_input_tokens` and `agent.cache_read_input_tokens`
+  as int64 attributes. Each per-call log entry includes
+  `cache_creation_input_tokens` and `cache_read_input_tokens` as
+  structured fields.
+- **No event stream impact.** Cache metrics are not surfaced through the
+  streaming event callback (S2.3). Applications needing programmatic
+  access to cache metrics use tracing or log processing.
+- **Pass-through semantics.** The library reports whatever cache metrics
+  the API returns. It does not interpret, validate, or act on them.
+**Relates to:** S1.1 (Agent), S1.2 (Completer), S2.2 (Agentic Loop),
+S2.12 (Distributed Tracing), S2.13 (Structured Logging), S2.14
+(Completer), E1 (Prompt Caching, Cache Control Breakpoint), E2.1
+(Anthropic Messages API).
 
 ## Completer (S1.2)
 
@@ -476,7 +521,7 @@ complete response message contains:
 |-------|-------------|
 | content | Ordered list of content blocks (text, tool use, thinking) |
 | stop_reason | Why the model stopped: end_turn, tool_use, max_tokens, stop_sequence, pause_turn, refusal |
-| usage | Token counts (input, output) |
+| usage | Token counts: input, output, cache_creation_input, cache_read_input |
 
 **Command-query table:**
 
@@ -494,7 +539,8 @@ interesting structure is in the request and response types, documented
 in the tables above.
 
 **Relates to:** S1.2 (Completer), S2.2 (Agentic Loop), S2.3 (Streaming),
-E2.1 (Anthropic Messages API), E2.2 (Anthropic Go SDK).
+S2.17 (Prompt Caching), E2.1 (Anthropic Messages API), E2.2 (Anthropic
+Go SDK).
 
 ### S2.7: Transient Error Handling
 

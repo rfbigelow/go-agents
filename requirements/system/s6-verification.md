@@ -405,6 +405,31 @@ hook-requested abort (S6.27/S6.28/S6.29) and from a hook handler panic
 (S6.30). Conversation state is preserved up to the last completed turn —
 the partial turn that invoked the hook is not retained.
 
+### S6.32: Prompt Caching
+
+**Verifies:** S2.17
+**Method:** Test with mocked API responses, inspecting the
+CompletionRequest passed to the Completer and the resulting spans and
+log entries.
+**Pass condition:**
+- With prompt caching enabled (the default), the CompletionRequest sent
+  to the Completer carries a cache control breakpoint on the last system
+  text block and on the last tool definition. When only a system prompt
+  is present (no tools), only the system block carries a breakpoint.
+  When only tools are present (no system prompt), only the last tool
+  carries a breakpoint. When neither is present, no breakpoints are
+  placed.
+- With prompt caching disabled via the configuration flag, no cache
+  control breakpoints are placed on any content block.
+- Regardless of the configuration flag, the `agent.llm_call` span
+  carries `agent.cache_creation_input_tokens` and
+  `agent.cache_read_input_tokens` as int64 attributes reflecting the
+  values from the mocked API response's usage.
+- Regardless of the configuration flag, the per-call structured log
+  entry includes `cache_creation_input_tokens` and
+  `cache_read_input_tokens` as attributes reflecting the values from the
+  mocked API response's usage.
+
 ## Verification Coverage
 
 | Requirement | Verified by |
@@ -424,3 +449,4 @@ the partial turn that invoked the hook is not retained.
 | S2.13 | S6.17 |
 | S2.15 | S6.24 |
 | S2.16 | S6.26 |
+| S2.17 | S6.32 |

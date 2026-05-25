@@ -33,6 +33,10 @@ type Config struct {
 	// parameter. nil omits the parameter from requests (S2.16).
 	Effort *string
 
+	// DisablePromptCaching opts out of automatic cache control breakpoint
+	// placement on the system prompt and tool definitions (S2.17).
+	DisablePromptCaching bool
+
 	// Logger is the structured logger used by the Agent.
 	// If nil, slog.Default() is used.
 	Logger *slog.Logger
