@@ -426,32 +426,48 @@ include trace and span IDs as attributes to enable log-trace correlation.
 
 #### S2.17: Prompt Caching
 
-**Description:** The Agent optimizes multi-turn LLM requests by placing
-cache control breakpoints on the stable prefixes of each request — the
-system prompt and tool definitions — so the Anthropic API can cache and
-reuse them across turns within a run. Cache metrics from the API response
-(cache_creation_input_tokens, cache_read_input_tokens) are surfaced
-through the library's observability channels: as span attributes on the
-`agent.llm_call` span (S2.12) and as structured log attributes in the
-per-call log entry (S2.13).
+**Description:** The Agent optimizes LLM requests by placing cache
+control breakpoints on stable prefixes so the Anthropic API can cache
+and reuse them. Three breakpoints are placed: on the system prompt, on
+the tool definitions, and on the conversation history. The system and
+tool breakpoints cache the static prefix that is identical across all
+turns. The conversation breakpoint caches the growing message history,
+benefiting both successive turns within a single `run` (agentic loop)
+and successive `run` calls across the conversation loop. Cache metrics
+from the API response (cache_creation_input_tokens,
+cache_read_input_tokens) are surfaced through the library's
+observability channels: as span attributes on the `agent.llm_call` span
+(S2.12) and as structured log attributes in the per-call log entry
+(S2.13).
 **Trigger:** Every LLM request built by the Agent during agentic loop
 execution.
 **Inputs:** Agent configuration (prompt caching enabled by default,
-opt-out via Config), system prompt and tool definitions from the current
-request.
-**Outputs:** Cache control breakpoints on the last system block and last
-tool definition in each request. Cache token metrics on per-call spans
-and log entries.
+opt-out via Config), system prompt, tool definitions, and conversation
+messages from the current request.
+**Outputs:** Cache control breakpoints on the last system block, last
+tool definition, and second-to-last message in each request. Cache
+token metrics on per-call spans and log entries.
 **Rules:**
-- **Breakpoint placement.** The Agent places a cache control breakpoint
+- **Static breakpoints.** The Agent places a cache control breakpoint
   on the last element of the system prompt array and on the last element
   of the tool definitions array. If only one is present, the breakpoint
-  is placed on whichever is present. If neither is present, no breakpoints
-  are placed.
+  is placed on whichever is present.
+- **Conversation breakpoint.** The Agent places a cache control
+  breakpoint on the last content block of the second-to-last message in
+  the messages array. This caches system + tools + all prior messages,
+  excluding only the most recently added message. When there are fewer
+  than two messages, no conversation breakpoint is placed.
+- **Breakpoint budget.** The Anthropic API allows at most 4 cache
+  control breakpoints per request. The library uses up to 3 (system,
+  tools, conversation), leaving 1 slot of headroom.
 - **Enabled by default.** Prompt caching is active unless the consuming
   application opts out via a configuration flag. When opted out, no cache
   control breakpoints are placed; cache metrics are still reported from
-  the API response.
+  the API response. The single flag controls all three breakpoints.
+- **No conversation state mutation.** Breakpoints are applied to the
+  request's copy of the messages, not to the stored conversation state.
+  Reading the conversation after a `run` does not expose cache control
+  markers.
 - **Per-call metrics only.** Cache metrics are reported per LLM call, not
   accumulated across turns. Each `agent.llm_call` span carries
   `agent.cache_creation_input_tokens` and `agent.cache_read_input_tokens`
@@ -464,6 +480,7 @@ and log entries.
 - **Pass-through semantics.** The library reports whatever cache metrics
   the API returns. It does not interpret, validate, or act on them.
 **Relates to:** S1.1 (Agent), S1.2 (Completer), S2.2 (Agentic Loop),
+S1.4 (Conversation State), S2.6 (Conversation State Management),
 S2.12 (Distributed Tracing), S2.13 (Structured Logging), S2.14
 (Completer), E1 (Prompt Caching, Cache Control Breakpoint), E2.1
 (Anthropic Messages API).

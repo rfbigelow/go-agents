@@ -419,8 +419,19 @@ log entries.
   When only tools are present (no system prompt), only the last tool
   carries a breakpoint. When neither is present, no breakpoints are
   placed.
+- When the messages array contains two or more messages, a cache control
+  breakpoint is placed on the last content block of the second-to-last
+  message. When the messages array contains fewer than two messages, no
+  conversation breakpoint is placed.
+- In a multi-turn tool-use run, the conversation breakpoint advances
+  with each turn — always on the second-to-last message of the growing
+  conversation.
+- The conversation breakpoint does not mutate the stored conversation
+  state. Reading the Agent's conversation after a run does not expose
+  cache control markers on any message content block.
 - With prompt caching disabled via the configuration flag, no cache
-  control breakpoints are placed on any content block.
+  control breakpoints are placed on any content block (system, tools,
+  or conversation).
 - Regardless of the configuration flag, the `agent.llm_call` span
   carries `agent.cache_creation_input_tokens` and
   `agent.cache_read_input_tokens` as int64 attributes reflecting the

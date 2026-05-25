@@ -870,6 +870,122 @@ func TestAgent_PromptCaching_Disabled(t *testing.T) {
 	}
 }
 
+func TestAgent_PromptCaching_ConversationBreakpoint(t *testing.T) {
+	t.Run("SecondRunPlacesBreakpoint", func(t *testing.T) {
+		mock := &mockCompleter{response: "ok"}
+		a := NewAgent(mock, NewToolRegistry(), Config{
+			Model: "claude-sonnet-4-5", MaxTokens: 100, System: "You are helpful.",
+		})
+
+		// First run: only 1 message (user), no conversation breakpoint.
+		if err := a.Run(context.Background(), "first", nil); err != nil {
+			t.Fatalf("Run 1 failed: %v", err)
+		}
+		req1 := mock.capturedRequests[0]
+		for i, msg := range req1.Messages {
+			for j, block := range msg.Content {
+				if cc := block.GetCacheControl(); cc != nil && cc.Type == "ephemeral" {
+					t.Errorf("Run 1: unexpected conversation breakpoint on msg[%d].Content[%d]", i, j)
+				}
+			}
+		}
+
+		// Second run: 3 messages (user, assistant, user). Second-to-last
+		// (assistant) should carry the breakpoint.
+		if err := a.Run(context.Background(), "second", nil); err != nil {
+			t.Fatalf("Run 2 failed: %v", err)
+		}
+		req2 := mock.capturedRequests[1]
+		if len(req2.Messages) != 3 {
+			t.Fatalf("expected 3 messages on Run 2, got %d", len(req2.Messages))
+		}
+		secondToLast := req2.Messages[1] // assistant message
+		lastBlock := secondToLast.Content[len(secondToLast.Content)-1]
+		if cc := lastBlock.GetCacheControl(); cc == nil || cc.Type != "ephemeral" {
+			t.Error("expected conversation breakpoint on second-to-last message")
+		}
+	})
+
+	t.Run("SingleMessageNoBreakpoint", func(t *testing.T) {
+		mock := &mockCompleter{response: "ok"}
+		a := NewAgent(mock, NewToolRegistry(), Config{
+			Model: "claude-sonnet-4-5", MaxTokens: 100,
+		})
+
+		if err := a.Run(context.Background(), "hi", nil); err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+		req := mock.capturedRequests[0]
+		if len(req.Messages) != 1 {
+			t.Fatalf("expected 1 message, got %d", len(req.Messages))
+		}
+	})
+
+	t.Run("AdvancesAcrossToolUseTurns", func(t *testing.T) {
+		registry := NewToolRegistry()
+		mustRegister(t, registry, Tool{
+			Name:    "ping",
+			Execute: func(_ context.Context, _ json.RawMessage) (string, error) { return "pong", nil },
+		})
+
+		mock := &mockCompleter{
+			responses: []scriptedResponse{
+				{ToolCalls: []scriptedToolCall{{ID: "t1", Name: "ping", Input: json.RawMessage(`{}`)}}},
+				{Text: "done"},
+			},
+		}
+		a := NewAgent(mock, registry, Config{
+			Model: "claude-sonnet-4-5", MaxTokens: 100, System: "You are helpful.",
+		})
+
+		if err := a.Run(context.Background(), "go", nil); err != nil {
+			t.Fatalf("Run failed: %v", err)
+		}
+
+		// Turn 0: 1 message (user) → no conversation breakpoint.
+		req0 := mock.capturedRequests[0]
+		if len(req0.Messages) != 1 {
+			t.Fatalf("turn 0: expected 1 message, got %d", len(req0.Messages))
+		}
+
+		// Turn 1: 3 messages (user, assistant[tool_use], user[tool_result]).
+		// Breakpoint should be on msg[1] (assistant with tool_use).
+		req1 := mock.capturedRequests[1]
+		if len(req1.Messages) != 3 {
+			t.Fatalf("turn 1: expected 3 messages, got %d", len(req1.Messages))
+		}
+		bp := req1.Messages[1] // assistant message
+		lastBlock := bp.Content[len(bp.Content)-1]
+		if cc := lastBlock.GetCacheControl(); cc == nil || cc.Type != "ephemeral" {
+			t.Error("turn 1: expected conversation breakpoint on second-to-last message")
+		}
+	})
+
+	t.Run("NoConversationStateMutation", func(t *testing.T) {
+		mock := &mockCompleter{response: "ok"}
+		a := NewAgent(mock, NewToolRegistry(), Config{
+			Model: "claude-sonnet-4-5", MaxTokens: 100, System: "You are helpful.",
+		})
+
+		if err := a.Run(context.Background(), "first", nil); err != nil {
+			t.Fatalf("Run 1 failed: %v", err)
+		}
+		if err := a.Run(context.Background(), "second", nil); err != nil {
+			t.Fatalf("Run 2 failed: %v", err)
+		}
+
+		// After two runs, conversation state should have no cache control
+		// markers on any content block.
+		for i, msg := range a.Conversation() {
+			for j, block := range msg.Content {
+				if cc := block.GetCacheControl(); cc != nil && cc.Type == "ephemeral" {
+					t.Errorf("conversation state mutated: cache control on msg[%d].Content[%d]", i, j)
+				}
+			}
+		}
+	})
+}
+
 func TestAgent_PromptCaching_LogAttributes(t *testing.T) {
 	h := newCapturingHandler()
 	mock := &mockCompleter{

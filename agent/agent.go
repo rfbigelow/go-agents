@@ -240,9 +240,40 @@ func (a *Agent) buildRequest() CompletionRequest {
 		if len(req.Tools) > 0 {
 			*req.Tools[len(req.Tools)-1].GetCacheControl() = cc
 		}
+		if len(req.Messages) >= 2 {
+			idx := len(req.Messages) - 2
+			msg := req.Messages[idx]
+			if n := len(msg.Content); n > 0 {
+				newContent := make([]anthropic.ContentBlockParamUnion, n)
+				copy(newContent, msg.Content)
+				setCacheControlOnContentBlock(&newContent[n-1], cc)
+				msg.Content = newContent
+				req.Messages[idx] = msg
+			}
+		}
 	}
 
 	return req
+}
+
+// setCacheControlOnContentBlock clones the set variant's struct and sets
+// CacheControl on the clone, so the original (shared with conversation
+// state) is not mutated.
+func setCacheControlOnContentBlock(b *anthropic.ContentBlockParamUnion, cc anthropic.CacheControlEphemeralParam) {
+	switch {
+	case b.OfText != nil:
+		c := *b.OfText
+		c.CacheControl = cc
+		b.OfText = &c
+	case b.OfToolUse != nil:
+		c := *b.OfToolUse
+		c.CacheControl = cc
+		b.OfToolUse = &c
+	case b.OfToolResult != nil:
+		c := *b.OfToolResult
+		c.CacheControl = cc
+		b.OfToolResult = &c
+	}
 }
 
 // complete calls the Completer and streams events to the handler.
