@@ -26,7 +26,7 @@ autonomous workflow.
 
 1. The developer creates an Agent and registers one or more tools.
 2. The developer sends a user message describing a task.
-3. The Agent enters the agentic loop: it sends the conversation to the LLM,
+3. The Agent enters the agent loop: it sends the conversation to the LLM,
    the LLM requests tool calls, the Agent dispatches them, and repeats until the
    LLM produces a final response.
 4. The developer receives the final response with the task completed.
@@ -87,7 +87,7 @@ to execute them.
    the Tool Registry.
 2. The developer sends a user message describing a task that may require a
    flagged tool.
-3. When the LLM requests a flagged tool during the agentic loop, the approval
+3. When the LLM requests a flagged tool during the agent loop, the approval
    callback is invoked with the tool name and arguments. The developer's
    application surfaces the request to a human, who decides approve or deny.
 4. On approval, the tool executes and the loop continues. On denial, the LLM
@@ -120,7 +120,7 @@ the Anthropic effort parameter.
 
 **Actor:** Library consumer (G7.2)
 
-**Goal:** Inject deterministic (non-LLM) logic into the agentic loop —
+**Goal:** Inject deterministic (non-LLM) logic into the agent loop —
 validating LLM requests, transforming tool arguments, substituting cached
 results, redacting tool outputs, or enforcing policy — without modifying the
 loop itself.
@@ -131,7 +131,7 @@ loop itself.
    one or more hook handlers at the points the application needs to interpose:
    `PreLLMCall`, `PreToolUse`, or `PostToolUse`. Each hook is a typed handler
    with a typed decision return.
-2. The developer sends a user message describing a task. The agentic loop runs
+2. The developer sends a user message describing a task. The agent loop runs
    as usual.
 3. At each defined point, the Agent invokes the registered hook synchronously
    and acts on the returned decision: `Continue` (proceed), `Modify` (proceed

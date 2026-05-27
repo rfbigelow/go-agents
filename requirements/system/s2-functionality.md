@@ -20,7 +20,7 @@ loop.
 **Relates to:** G3.1 (reusability), E3.3 (platform agnosticism), S2.15
 (Conversation Resumption).
 
-### S2.2: Agentic Loop Execution
+### S2.2: Agent Loop Execution
 
 **Description:** The Agent sends the current conversation state to the LLM
 and processes the response. If the response contains tool-use requests, the
@@ -33,7 +33,7 @@ final response with no tool-use requests.
 **Rules:** All tool calls within a single LLM response are executed in parallel
 before the next LLM turn. The turn completes when all tool calls (including
 sub-agent invocations) finish. The loop must terminate (guard against infinite
-tool-call cycles). The agentic loop is sequential at the turn level — a new
+tool-call cycles). The agent loop is sequential at the turn level — a new
 `run` cannot be initiated while a run is in progress.
 **Relates to:** S1.1 (Agent), S1.4 (Conversation State), S2.5 (Tool Dispatch),
 S2.11 (Sub-Agent Composition).
@@ -42,7 +42,7 @@ S2.11 (Sub-Agent Composition).
 
 **Description:** LLM responses are streamed to the consuming application as
 they are generated, rather than waiting for the full response.
-**Trigger:** Each LLM response during agentic loop execution.
+**Trigger:** Each LLM response during agent loop execution.
 **Inputs:** Streaming response from the Completer.
 **Outputs:** Incremental content delivered to the consuming application via
 a callback or channel mechanism.
@@ -72,7 +72,7 @@ Preconditions:
 ```
 
 The Agent's mutable state is its conversation history and its hook bundle.
-Each `run` appends the user message, drives the agentic loop (calling the
+Each `run` appends the user message, drives the agent loop (calling the
 Completer, dispatching tools, repeating as needed), appends all resulting
 messages (assistant responses, tool results), and returns the updated
 Agent. The response is delivered incrementally via the event stream during
@@ -97,7 +97,7 @@ handlers for the three hook points: `pre_llm_call`, `pre_tool_use`, and
 (the default on newly-constructed Agents) means no hooks fire. There is
 no partial-update command; replacing the bundle is the only way to change
 hooks. Hooks may be set or replaced at any time, including between `run`
-calls; the agentic loop reads the current bundle at each hook point.
+calls; the agent loop reads the current bundle at each hook point.
 
 **Configuration (CONFIG):**
 
@@ -106,7 +106,7 @@ calls; the agentic loop reads the current bundle at each hook point.
 | system | System prompt |
 | model | Which model to use |
 | max_tokens | Maximum tokens per LLM response |
-| max_iterations | Maximum agentic loop iterations before terminating (loop guard) |
+| max_iterations | Maximum agent loop iterations before terminating (loop guard) |
 | temperature | Sampling temperature (optional) |
 | thinking | Extended thinking configuration (optional) — see S2.9 |
 | effort | Output effort level (optional) — see S2.16 |
@@ -118,12 +118,12 @@ calls; the agentic loop reads the current bundle at each hook point.
 ----------------------------------------+-----------------------------------------------------+--------------
 new_agent                               | empty list                                          | empty bundle
 new_agent_with_history(c, r, cfg, msgs) | msgs (when validation passes)                       | empty bundle
-run(a, msg)                             | messages(a) + user message + agentic loop messages  | hooks(a)
+run(a, msg)                             | messages(a) + user message + agent loop messages  | hooks(a)
 with_hooks(a, hb)                       | messages(a)                                         | hb
 ```
 
 `run` extends the conversation with the user message and all messages
-produced during the agentic loop — assistant responses, tool-use
+produced during the agent loop — assistant responses, tool-use
 requests, tool results — in protocol-correct order. If the loop involves
 multiple turns (tool use), all intermediate messages are included.
 
@@ -153,7 +153,7 @@ approval.
 returned. If denied, an error result indicating the user denied the action
 is sent back to the LLM.
 **Rules:**
-- On denial, the agentic loop continues — the LLM receives the denial as
+- On denial, the agent loop continues — the LLM receives the denial as
   an error tool result and can adapt (try a different approach, ask for
   clarification, or produce a final response).
 - When a turn contains one or more HITL-flagged tool calls, approval
@@ -162,7 +162,7 @@ is sent back to the LLM.
   and non-HITL tools execute in parallel. Denied tools receive error
   results without executing.
 - `run` does not return mid-loop for HITL decisions — the callback blocks
-  the agentic loop until it returns, consistent with how `run` blocks
+  the agent loop until it returns, consistent with how `run` blocks
   during LLM calls and tool execution. The library imposes no timeout on
   the callback; cancellation is via the `context.Context` passed to `run`.
 - If the approval callback panics, the Agent does not recover. The panic
@@ -288,7 +288,7 @@ Output Effort).
 #### S2.10: Deterministic Logic
 
 **Description:** Applications can register typed handlers that interpose on
-specific points in the agentic loop, allowing deterministic (non-LLM) logic
+specific points in the agent loop, allowing deterministic (non-LLM) logic
 — validation, transformation, routing, caching, policy enforcement — to
 influence loop behavior without going through the LLM. Three hook points
 are defined: `PreLLMCall`, `PreToolUse`, and `PostToolUse`. Each hook point
@@ -350,7 +350,7 @@ distinct from a malfunction.
 - Per-turn-boundary observation is not within scope of S2.10. Applications
   needing turn-boundary signals use S2.12 (tracing) or S2.13 (logging);
   S2.3 emits chunk-granular events, not turn boundaries.
-**Relates to:** S2.2 (Agentic Loop), S2.5 (Tool Dispatch), S2.8 (HITL —
+**Relates to:** S2.2 (Agent Loop), S2.5 (Tool Dispatch), S2.8 (HITL —
 ordering at PreToolUse), S2.3 (Streaming), S2.12 (Tracing), S2.13
 (Logging), S1.1 (Agent), S1.3 (Tool Registry).
 
@@ -371,7 +371,7 @@ of one). Each sub-agent has its own conversation state, independent of the
 parent's. Each sub-agent produces its own response stream, separate from the
 parent's stream and from other sub-agents' streams, so that concurrent output
 can be rendered independently.
-**Relates to:** S2.2 (Agentic Loop), S2.3 (Streaming), S2.5 (Tool
+**Relates to:** S2.2 (Agent Loop), S2.3 (Streaming), S2.5 (Tool
 Dispatch), G5.4 (Composing Agents with Sub-Agents).
 
 ### Observability
@@ -398,7 +398,7 @@ OTEL SDK, choosing an exporter, and managing the tracer provider lifecycle.
 Span names follow a consistent naming convention (e.g., `agent.run`,
 `agent.llm_call`, `agent.tool.<name>`, `agent.sub_agent.<name>`).
 **Relates to:** E2.3 (OTEL Trace API), E3.5 (Consumer Resource Control),
-E6.1 (Application Controls Execution Flow), S2.2 (Agentic Loop),
+E6.1 (Application Controls Execution Flow), S2.2 (Agent Loop),
 S2.5 (Tool Dispatch), S2.11 (Sub-Agent Composition), S2.17 (Prompt
 Caching).
 
@@ -432,14 +432,14 @@ and reuse them. Three breakpoints are placed: on the system prompt, on
 the tool definitions, and on the conversation history. The system and
 tool breakpoints cache the static prefix that is identical across all
 turns. The conversation breakpoint caches the growing message history,
-benefiting both successive turns within a single `run` (agentic loop)
+benefiting both successive turns within a single `run` (agent loop)
 and successive `run` calls across the conversation loop. Cache metrics
 from the API response (cache_creation_input_tokens,
 cache_read_input_tokens) are surfaced through the library's
 observability channels: as span attributes on the `agent.llm_call` span
 (S2.12) and as structured log attributes in the per-call log entry
 (S2.13).
-**Trigger:** Every LLM request built by the Agent during agentic loop
+**Trigger:** Every LLM request built by the Agent during agent loop
 execution.
 **Inputs:** Agent configuration (prompt caching enabled by default,
 opt-out via Config), system prompt, tool definitions, and conversation
@@ -479,7 +479,7 @@ token metrics on per-call spans and log entries.
   access to cache metrics use tracing or log processing.
 - **Pass-through semantics.** The library reports whatever cache metrics
   the API returns. It does not interpret, validate, or act on them.
-**Relates to:** S1.1 (Agent), S1.2 (Completer), S2.2 (Agentic Loop),
+**Relates to:** S1.1 (Agent), S1.2 (Completer), S2.2 (Agent Loop),
 S1.4 (Conversation State), S2.6 (Conversation State Management),
 S2.12 (Distributed Tracing), S2.13 (Structured Logging), S2.14
 (Completer), E1 (Prompt Caching, Cache Control Breakpoint), E2.1
@@ -555,7 +555,7 @@ The Completer has no commands because it has no mutable state. The
 interesting structure is in the request and response types, documented
 in the tables above.
 
-**Relates to:** S1.2 (Completer), S2.2 (Agentic Loop), S2.3 (Streaming),
+**Relates to:** S1.2 (Completer), S2.2 (Agent Loop), S2.3 (Streaming),
 S2.17 (Prompt Caching), E2.1 (Anthropic Messages API), E2.2 (Anthropic
 Go SDK).
 
@@ -619,7 +619,7 @@ recovered and reported as error tool results, with details logged (S2.13).
 Tool executions inherit the `context.Context` of the enclosing `run`; the
 library does not impose per-tool timeouts, leaving lifecycle control to the
 consuming application.
-**Relates to:** S1.3 (Tool Registry), S2.2 (Agentic Loop), S2.8 (HITL).
+**Relates to:** S1.3 (Tool Registry), S2.2 (Agent Loop), S2.8 (HITL).
 
 ### Tool Registry ADT Stub
 
@@ -712,7 +712,7 @@ Messages are appended as the conversation progresses (user messages, assistant
 responses, tool results). The library enforces correct message ordering and
 tool-use protocol conventions; S2.15 formalizes those invariants at construction
 time when a session is resumed from prior history.
-**Trigger:** Each turn in the agentic loop.
+**Trigger:** Each turn in the agent loop.
 **Inputs:** New messages generated during the conversation.
 **Outputs:** Updated conversation state available for the next LLM call.
 **Rules:**

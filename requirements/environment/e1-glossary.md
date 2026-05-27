@@ -12,7 +12,7 @@ use tools and pursue goals across multiple turns.
 ### Harness
 
 The reusable runtime infrastructure that manages an agent's execution: the
-agentic loop, tool dispatch, error handling, and interaction with the
+agent loop, tool dispatch, error handling, and interaction with the
 LLM API. The harness is what this library provides; agent-specific behavior
 is layered on top of it.
 
@@ -74,19 +74,19 @@ both the conversation history and the new response. When the conversation
 history exceeds the context window, the API returns an error and the consuming
 application must apply a strategy such as compaction or truncation to continue.
 
-### Agentic Loop
+### Agent Loop
 
 The inner runtime cycle within a single Agent run: send the conversation to
 the LLM, receive a response, check if the response contains tool-use
 requests, dispatch tools, append results, and repeat until the LLM produces
-a final (non-tool-use) response. The agentic loop is driven by the Agent
+a final (non-tool-use) response. The agent loop is driven by the Agent
 and executes within a single call to `run`. Distinguished from the
 conversation loop, which is the outer cycle driven by the user.
 
 ### Conversation Loop
 
 The outer cycle of a multi-turn conversation: the user sends a message, the
-Agent runs (executing the agentic loop) and produces a response, the user
+Agent runs (executing the agent loop) and produces a response, the user
 sends the next message, and so on. The conversation loop is driven by the
 consuming application, not by the library. Each iteration of the
 conversation loop corresponds to one call to `run`.
@@ -171,20 +171,20 @@ before execution. When the LLM requests a call to a HITL-flagged tool, the
 Tool Registry invokes an approval callback provided by the consuming
 application. The callback receives the tool call details and returns a
 binary approve/deny decision. On denial, an error result is sent back to
-the LLM so it can adapt. The approval callback blocks the agentic loop
+the LLM so it can adapt. The approval callback blocks the agent loop
 inline — `run` does not return mid-loop for HITL decisions.
 
 ### Approval Callback
 
 The function registered with the Tool Registry that decides whether a
 HITL-flagged Tool Call may proceed. Receives the tool name and arguments
-and returns a binary approve/deny decision. Blocks the agentic loop
+and returns a binary approve/deny decision. Blocks the agent loop
 inline until the decision is made. See Human-in-the-Loop (HITL).
 
 ### Hook
 
 A typed handler registered with an Agent that interposes on a specific
-point in the agentic loop, allowing deterministic (non-LLM) logic to
+point in the agent loop, allowing deterministic (non-LLM) logic to
 influence loop behavior. Each hook point has its own typed handler
 interface and its own typed decision return. At most one handler may be
 registered per hook point. Hooks fire synchronously and block the loop
@@ -238,7 +238,7 @@ configuration.
 ### Sub-Agent
 
 An agent that is started by another agent as part of its workflow. A sub-agent
-is a full agentic loop in its own right — with its own conversation state and
+is a full agent loop in its own right — with its own conversation state and
 potentially its own tools — but is initiated and managed by a parent agent.
 Sub-agent composition is a form of tool use from the parent's perspective, but
 represents an independent agentic workflow.

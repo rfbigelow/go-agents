@@ -17,7 +17,7 @@ type Config struct {
 	// MaxTokens is the maximum number of tokens in each LLM response.
 	MaxTokens int64
 
-	// MaxIterations is the maximum number of agentic loop iterations
+	// MaxIterations is the maximum number of agent loop iterations
 	// before the Agent terminates the run with an error.
 	MaxIterations int
 

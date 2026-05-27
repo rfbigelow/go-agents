@@ -30,7 +30,7 @@ mocked API returns tool-use blocks, the Agent dispatches to the correct tool
 implementations and appends results to conversation state. Multiple tool calls
 in a single response execute in parallel.
 
-### S6.3: Agentic Loop Termination
+### S6.3: Agent Loop Termination
 
 **Verifies:** S2.2
 **Method:** Test with mocked API responses that chain multiple tool-call turns
@@ -52,21 +52,21 @@ last completed turn.
 **Verifies:** S2.5, S4.2 (unknown tool)
 **Method:** Test with a mocked API response requesting a tool not in the registry.
 **Pass condition:** The Agent sends an error tool result back to the LLM. The
-agentic loop continues (no crash, no propagation to the consumer).
+agent loop continues (no crash, no propagation to the consumer).
 
 ### S6.6: Tool Error Handling
 
 **Verifies:** S2.5, S4.2 (tool returns error)
 **Method:** Test with a tool implementation that returns an error.
 **Pass condition:** The error is converted to an error tool result sent back to
-the LLM. The agentic loop continues.
+the LLM. The agent loop continues.
 
 ### S6.7: Tool Panic Recovery
 
 **Verifies:** S2.5, S4.2 (tool panics)
 **Method:** Test with a tool implementation that panics.
 **Pass condition:** The Agent recovers the panic, converts it to an error tool
-result, and continues the agentic loop. Other concurrent tool calls are
+result, and continues the agent loop. Other concurrent tool calls are
 unaffected.
 
 ### S6.8: API Error Propagation
@@ -91,16 +91,16 @@ the error propagates to the consumer per S6.8.
 **Verifies:** S2.11, S4.3
 **Method:** Test with a tool that creates and runs a sub-agent using mocked API
 responses.
-**Pass condition:** The sub-agent runs its own agentic loop with its own
+**Pass condition:** The sub-agent runs its own agent loop with its own
 conversation state. Its result is returned as a tool result to the parent agent.
-The parent's agentic loop continues.
+The parent's agent loop continues.
 
 ### S6.11: Sub-Agent Failure Isolation
 
 **Verifies:** S2.11, S4.3 (sub-agent error, sub-agent panic)
 **Method:** Test with sub-agents that return errors and sub-agents that panic.
 **Pass condition:** Failures are converted to error tool results for the parent.
-The parent's agentic loop continues.
+The parent's agent loop continues.
 
 ### S6.12: Sub-Agent Nesting Rejection
 
@@ -124,7 +124,7 @@ result is sent back to the LLM.
 **Method:** Test with a HITL-flagged tool and an approval callback that
 returns deny. Mock API returns a tool-use request for the HITL tool.
 **Pass condition:** The tool does not execute. An error tool result
-indicating user denial is sent back to the LLM. The agentic loop
+indicating user denial is sent back to the LLM. The agent loop
 continues — the LLM receives the denial and can respond.
 
 ### S6.20: HITL Mixed Parallel Tool Calls
@@ -308,7 +308,7 @@ tool-level human approval runs against the live Anthropic API.
 **Pass condition:** Within a single session, the example exercises both an
 approval path (the approval callback returns approve, the tool executes, and
 its result is returned to the LLM) and a denial path (the callback returns
-deny, a denial error is returned to the LLM, and the agentic loop continues to
+deny, a denial error is returned to the LLM, and the agent loop continues to
 a final response). The application surfaces each approval request to a human
 with the tool name and arguments, and conveys the human's decision to the
 callback. The application configures a slog handler so that approval-gate
@@ -330,7 +330,7 @@ exercising each decision variant.
   call parameters, the Completer receives the rewritten payload.
 - With a handler returning `Substitute` carrying a synthetic assistant
   message, the Completer is not invoked. The synthetic message is appended
-  to conversation state and processed by the agentic loop as if it were
+  to conversation state and processed by the agent loop as if it were
   the LLM's response, including any tool-use blocks it contains.
 - With a handler returning `Abort` carrying a reason, `run` returns that
   reason wrapped to identify it as a hook-requested abort. Conversation

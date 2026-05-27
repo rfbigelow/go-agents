@@ -46,7 +46,7 @@ registered.
 **Main flow:**
 
 1. The consumer sends a user message describing a task.
-2. The Agent enters the agentic loop (S2.2). The LLM requests one or more
+2. The Agent enters the agent loop (S2.2). The LLM requests one or more
    tool calls.
 3. The Agent dispatches all tool calls in parallel via the Tool Registry (S2.5).
 4. Tool results are appended to conversation state and sent to the LLM in the
@@ -58,8 +58,8 @@ registered.
 
 - **Unknown tool name:** The LLM requests a tool that is not in the registry.
   The Agent sends an error tool result back to the LLM describing the unknown
-  tool. The agentic loop continues — the LLM can adjust.
-- **Maximum iterations reached:** The agentic loop hits the configured
+  tool. The agent loop continues — the LLM can adjust.
+- **Maximum iterations reached:** The agent loop hits the configured
   maximum iteration count. The Agent stops the loop and returns an error to
   the consumer. Conversation state is preserved up to the last completed turn.
 
@@ -67,9 +67,9 @@ registered.
 
 - **Tool returns an error:** The tool implementation returns a Go error. The
   Agent converts it to an error tool result and sends it back to the LLM. The
-  agentic loop continues.
+  agent loop continues.
 - **Tool panics:** The Agent recovers the panic via `recover()`, converts it
-  to an error tool result, and sends it back to the LLM. The agentic loop
+  to an error tool result, and sends it back to the LLM. The agent loop
   continues. The panic does not propagate to the consumer or affect other
   concurrent tool calls.
 - **Multiple tool failures in one turn:** Each tool call is independent. Failures
@@ -85,9 +85,9 @@ registered.
 
 **Main flow:**
 
-1. The parent agent's agentic loop calls a tool that creates and runs a
+1. The parent agent's agent loop calls a tool that creates and runs a
    sub-agent.
-2. The sub-agent runs its own agentic loop to completion.
+2. The sub-agent runs its own agent loop to completion.
 3. The sub-agent's result is returned as a tool result to the parent.
 4. The parent continues its workflow.
 
@@ -101,7 +101,7 @@ registered.
 
 - **Sub-agent returns an error:** The sub-agent's run fails (API error, max
   iterations, etc.). The error is converted to an error tool result for the
-  parent agent. The parent's agentic loop continues — the parent can
+  parent agent. The parent's agent loop continues — the parent can
   react to the failure.
 - **Sub-agent tool panics:** The parent agent recovers the panic (same as
   S4.2), converts it to an error tool result, and continues.
@@ -126,7 +126,7 @@ registered.
 **Alternate flows:**
 
 - **Thinking with tool use:** The LLM reasons in a thinking block, then
-  requests tool calls. The agentic loop proceeds normally (S4.2). Thinking
+  requests tool calls. The agent loop proceeds normally (S4.2). Thinking
   blocks may appear before any turn's tool-call requests.
 
 ## S4.5: Tool Approval — Approval, Denial, and Mixed Turns
@@ -139,7 +139,7 @@ registered.
 **Main flow:**
 
 1. The consumer sends a user message describing a task.
-2. The Agent enters the agentic loop (S2.2). The LLM responds with a tool-use
+2. The Agent enters the agent loop (S2.2). The LLM responds with a tool-use
    request for a HITL-flagged tool.
 3. The Tool Registry invokes the approval callback with the tool name and
    arguments. The callback returns approve.
@@ -152,7 +152,7 @@ registered.
 - **Denial:** The approval callback returns deny. The Tool Registry produces
   an error tool result indicating user denial; the tool does not execute. The
   LLM receives the denial and can adapt (try another approach, ask for
-  clarification, or produce a final response). The agentic loop continues.
+  clarification, or produce a final response). The agent loop continues.
 - **Mixed HITL and non-HITL tools in one turn:** The LLM requests multiple
   tool calls in a single response, some flagged for approval and some not.
   The Tool Registry invokes each HITL callback serially, in the order the
@@ -184,7 +184,7 @@ registered.
 **Main flow:**
 
 1. The consumer sends a user message describing a task.
-2. The Agent enters the agentic loop (S2.2). Before each LLM call, the
+2. The Agent enters the agent loop (S2.2). Before each LLM call, the
    registered `PreLLMCall` hook fires synchronously and returns `Continue`;
    the LLM call proceeds with the original payload.
 3. The LLM requests a tool call. The registered `PreToolUse` hook fires

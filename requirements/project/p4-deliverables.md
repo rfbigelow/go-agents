@@ -34,7 +34,7 @@ documentation provides orientation and usage examples.
 demonstrate its capabilities and validate its API through real use
 (dog-fooding). Serve as both tests of the library's ergonomics and
 references for consumers. At minimum: one example exercising the core
-agentic loop with tool use (M6), and a separate example exercising
+agent loop with tool use (M6), and a separate example exercising
 tool-level human approval (M3).
 **Audience:** Library developers, potential future users.
 **Acceptance:** Each example runs end-to-end against the live Anthropic
@@ -43,7 +43,7 @@ API and demonstrates idiomatic usage of the capability it targets.
 ## Major Tasks
 
 - Design and implement core abstractions (Agent, Completer, Tool interface)
-- Implement agentic loop with streaming
+- Implement agent loop with streaming
 - Implement tool registration and dispatch
 - Add progressive capabilities (HITL, extended thinking, deterministic logic)
 - Build example application

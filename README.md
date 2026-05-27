@@ -6,12 +6,12 @@ A lightweight Go library for building LLM-based agents with the Anthropic API.
 
 go-agents provides reusable infrastructure for agentic workflows so you can
 focus on domain-specific behavior rather than plumbing. The library manages the
-agentic loop (LLM calls, tool dispatch, streaming) and conversation state,
+agent loop (LLM calls, tool dispatch, streaming) and conversation state,
 instrumented with OpenTelemetry tracing and structured logging.
 
 Core components:
 
-- **Agent** -- drives the agentic loop, coordinates tool execution and
+- **Agent** -- drives the agent loop, coordinates tool execution and
   conversation history
 - **Completer** -- stateless adapter bridging to the Anthropic Go SDK
 - **Tool Registry** -- manages tool definitions and dispatch
@@ -93,7 +93,7 @@ parallel tool dispatch with a working human approval gate (see
 `examples/hitl/`), Extended Thinking with adaptive and enabled modes plus
 `output_config.effort` (see `examples/chat/`), typed loop hooks at
 `PreLLMCall`, `PreToolUse`, and `PostToolUse` for interposing
-deterministic non-LLM logic on the agentic loop, and observability (OTEL
+deterministic non-LLM logic on the agent loop, and observability (OTEL
 tracing + slog logging) across LLM calls, tool-dispatch batches, and
 individual tool executions.
 

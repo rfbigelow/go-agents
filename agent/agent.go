@@ -10,13 +10,13 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-// defaultMaxIterations caps the agentic loop when Config.MaxIterations is
+// defaultMaxIterations caps the agent loop when Config.MaxIterations is
 // zero (the Go zero value). A small finite cap keeps misconfigured demos
 // from looping forever while remaining generous enough for typical tool
 // workflows.
 const defaultMaxIterations = 16
 
-// Agent manages the agentic loop, coordinating LLM communication via the
+// Agent manages the agent loop, coordinating LLM communication via the
 // Completer, tool dispatch via the ToolRegistry, and conversation history
 // via ConversationState.
 type Agent struct {
@@ -45,7 +45,7 @@ func (a *Agent) Conversation() []anthropic.MessageParam {
 
 // SetHooks replaces the Agent's hook bundle in full (S2.10). Hooks may
 // be set or replaced at any time, including between Run calls; the
-// agentic loop reads the current bundle at each hook point. An empty
+// agent loop reads the current bundle at each hook point. An empty
 // bundle (HookBundle{}) disables all hooks.
 func (a *Agent) SetHooks(b HookBundle) {
 	a.hooks = b
@@ -59,9 +59,9 @@ func (a *Agent) Hooks() HookBundle {
 // EventHandler is a callback invoked for each streaming event during a Run.
 type EventHandler func(Event)
 
-// Run executes the agentic loop for a single user message. The handler
+// Run executes the agent loop for a single user message. The handler
 // callback is invoked for each streaming event. Run blocks until the
-// agentic loop completes or an error occurs.
+// agent loop completes or an error occurs.
 func (a *Agent) Run(ctx context.Context, message string, handler EventHandler) error {
 	ctx, span := startSpan(ctx, "agent.run",
 		attribute.String("agent.model", string(a.config.Model)),
@@ -333,7 +333,7 @@ func (a *Agent) complete(ctx context.Context, req CompletionRequest, handler Eve
 	return msg, nil
 }
 
-// ErrMaxIterations is returned when the agentic loop exceeds the
+// ErrMaxIterations is returned when the agent loop exceeds the
 // configured maximum iteration count.
 var ErrMaxIterations = errors.New("maximum iterations exceeded")
 

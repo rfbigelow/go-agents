@@ -7,7 +7,7 @@ import (
 )
 
 // Loop hooks let an application interpose deterministic, non-LLM logic at
-// well-defined points in the agentic loop (S2.10). Three hook points are
+// well-defined points in the agent loop (S2.10). Three hook points are
 // defined: PreLLMCall, PreToolUse, and PostToolUse. Each point has its own
 // typed handler interface and its own sealed decision type. At most one
 // handler may be registered per point.
@@ -80,7 +80,7 @@ type PreLLMCallEvent struct {
 	// PreLLMCallModify can supply a rewritten request to use instead.
 	Request CompletionRequest
 
-	// Turn is the zero-based agentic-loop iteration index.
+	// Turn is the zero-based agent-loop iteration index.
 	Turn int
 }
 
@@ -103,7 +103,7 @@ func (PreLLMCallModify) isPreLLMCallDecision() {}
 
 // PreLLMCallSubstitute skips the Completer and uses the supplied
 // synthetic assistant Message as if it were the LLM's response. The
-// agentic loop processes the message normally, including any tool_use
+// agent loop processes the message normally, including any tool_use
 // blocks it contains.
 type PreLLMCallSubstitute struct {
 	Message anthropic.Message
@@ -141,7 +141,7 @@ type PreToolUseEvent struct {
 	// Call is the tool-use request as decoded from the LLM response.
 	Call ToolCall
 
-	// Turn is the zero-based agentic-loop iteration index.
+	// Turn is the zero-based agent-loop iteration index.
 	Turn int
 }
 
@@ -215,7 +215,7 @@ type PostToolUseEvent struct {
 	// the Anthropic tool_result block.
 	Synthesized bool
 
-	// Turn is the zero-based agentic-loop iteration index.
+	// Turn is the zero-based agent-loop iteration index.
 	Turn int
 }
 
