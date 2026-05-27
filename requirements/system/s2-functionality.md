@@ -15,7 +15,7 @@ message history to resume a persisted session (S2.15).
 prompt, model, max tokens, max iterations, optional parameters).
 **Outputs:** A configured Agent ready to run.
 **Rules:** An Agent whose Tool Registry is empty behaves as a simple chat
-completion client. A Tool Registry with registered tools enables the agentic
+completion client. A Tool Registry with registered tools enables the agent
 loop.
 **Relates to:** G3.1 (reusability), E3.3 (platform agnosticism), S2.15
 (Conversation Resumption).
@@ -356,7 +356,7 @@ ordering at PreToolUse), S2.3 (Streaming), S2.12 (Tracing), S2.13
 
 #### S2.11: Sub-Agent Composition
 
-**Description:** A tool can create and run a sub-agent — a separate agentic
+**Description:** A tool can create and run a sub-agent — a separate agent
 loop with its own conversation state, tools, and response stream. The parent
 agent invokes a sub-agent as a tool call; the sub-agent runs to completion and
 returns its result. Multiple sub-agents can run in parallel (as part of parallel

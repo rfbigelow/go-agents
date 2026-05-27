@@ -66,7 +66,7 @@ sub-agents.
 **Steps:**
 
 1. The developer creates a parent agent with tools.
-2. One of the parent's tools creates and runs a sub-agent — a separate agentic
+2. One of the parent's tools creates and runs a sub-agent — a separate agent
    loop with its own conversation state and potentially its own tools.
 3. The parent agent calls this tool during its workflow; the sub-agent runs to
    completion and returns its result.

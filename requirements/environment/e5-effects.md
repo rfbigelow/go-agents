@@ -12,7 +12,7 @@ factor in consumer application maintenance.
 
 ### E5.2: Agent Loop Management Is Delegated
 
-**What changes:** Agent applications no longer implement their own agentic
+**What changes:** Agent applications no longer implement their own agent
 loops.
 **How it changes:** The library manages the agent loop — sending messages
 to the LLM, processing tool-use requests, executing tools, and determining
