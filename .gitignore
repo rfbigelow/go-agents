@@ -2,3 +2,8 @@
 /chat
 /tool-use
 coverage.out
+
+# Personal/transient Claude Code state (shareable config like
+# .claude/settings.json or .claude/skills/ can still be committed).
+.claude/settings.local.json
+.claude/worktrees/
