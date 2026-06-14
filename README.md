@@ -17,6 +17,12 @@ Core components:
 - **Tool Registry** -- manages tool definitions and dispatch
 - **Conversation State** -- maintains message history across turns
 
+Capabilities layer on progressively: tool use, human-in-the-loop approval,
+extended thinking, deterministic loop hooks (interpose non-LLM logic at
+`PreLLMCall`, `PreToolUse`, and `PostToolUse`), sub-agent composition
+(run a separate agent loop as a tool), and prompt caching (cache-control
+breakpoints on stable prefixes, enabled by default).
+
 ## Why This Exists
 
 go-agents is both a working library and a deliberate exercise in applying
@@ -79,25 +85,33 @@ Requires Go 1.25+ and an Anthropic API key.
 
 ```
 export ANTHROPIC_API_KEY=sk-ant-...
-go run ./examples/chat/       # basic streaming chat
+go run ./examples/chat/       # basic streaming chat (+ extended thinking)
 go run ./examples/tool-use/   # tool use: current time + calculator
 go run ./examples/hitl/       # tool use with human approval gate
+go run ./examples/sub-agent/  # parent agent delegating to sub-agents
 ```
 
 ## Project Status
 
 M1 (Basic Conversation), M2 (Tool Use), M3 (HITL Example), M4
-(Extended Thinking), and M5 (Deterministic Logic) are implemented:
-streaming completions, conversation state management, tool registration,
-parallel tool dispatch with a working human approval gate (see
-`examples/hitl/`), Extended Thinking with adaptive and enabled modes plus
-`output_config.effort` (see `examples/chat/`), typed loop hooks at
-`PreLLMCall`, `PreToolUse`, and `PostToolUse` for interposing
-deterministic non-LLM logic on the agent loop, and observability (OTEL
-tracing + slog logging) across LLM calls, tool-dispatch batches, and
-individual tool executions.
+(Extended Thinking), M5 (Deterministic Logic), M7 (Sub-Agent
+Composition), and M8 (Prompt Caching) are implemented:
+streaming completions, conversation state management (with resumption
+from persisted history), tool registration, parallel tool dispatch with
+a working human approval gate (see `examples/hitl/`), Extended Thinking
+with adaptive and enabled modes plus `output_config.effort` (see
+`examples/chat/`), typed loop hooks at `PreLLMCall`, `PreToolUse`, and
+`PostToolUse` for interposing deterministic non-LLM logic on the agent
+loop, sub-agent composition where a tool runs a separate agent loop —
+one-shot or multi-turn, with optional attributed stream forwarding and
+HITL propagation (see `examples/sub-agent/`), prompt caching with
+cache-control breakpoints on stable prefixes (enabled by default,
+opt-out via Config), and observability (OTEL tracing + slog logging)
+across LLM calls, tool-dispatch batches, individual tool executions, and
+sub-agent invocations.
 
-Planned milestones: Example Application (M6).
+Planned milestones: Example Application (M6) — the dog-food application
+remains in progress.
 
 See [requirements/](requirements/README.md) for the full PEGS requirements.
 

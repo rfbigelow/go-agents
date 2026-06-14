@@ -15,10 +15,12 @@ iterative with no fixed timeline (P3).
 
 ## Timeline
 
-Six milestones ordered by dependency: Basic Conversation (M1) → Tool Use (M2)
-→ HITL (M3), Extended Thinking (M4), Deterministic Logic (M5) → Example
-Application (M6, started at M2). No hard deadlines — pace is driven by
-available time and learning goals. See P3 for details.
+Milestones ordered by dependency: Basic Conversation (M1) → Tool Use (M2)
+→ HITL (M3), Extended Thinking (M4), Deterministic Logic (M5), Sub-Agent
+Composition (M7), and Prompt Caching (M8) → Example Application (M6, started
+at M2 and still in progress). M1–M5, M7, and M8 are complete; M6 remains the
+open milestone. No hard deadlines — pace is driven by available time and
+learning goals. See P3 for details.
 
 ## Key Risks
 

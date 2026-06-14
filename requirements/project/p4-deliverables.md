@@ -45,7 +45,8 @@ API and demonstrates idiomatic usage of the capability it targets.
 - Design and implement core abstractions (Agent, Completer, Tool interface)
 - Implement agent loop with streaming
 - Implement tool registration and dispatch
-- Add progressive capabilities (HITL, extended thinking, deterministic logic)
+- Add progressive capabilities (HITL, extended thinking, deterministic logic,
+  sub-agent composition, prompt caching)
 - Build example application
 - Write unit tests for each component as it is developed
 - Write package documentation

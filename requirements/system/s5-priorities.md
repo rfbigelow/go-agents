@@ -37,6 +37,7 @@ are not required for a viable first release.
 - **S2.11** — Sub-agent composition
 - **S2.15** — Conversation resumption
 - **S2.16** — Effort
+- **S2.17** — Prompt caching
 
 ### Could
 
@@ -66,6 +67,8 @@ No requirements currently at this level.
 - S2.16 (effort) depends on S2.1 (agent creation) and S2.14 (Completer); it
   is independent of S2.9 (extended thinking) and applies whether or not
   thinking is configured.
+- S2.17 (prompt caching) depends on S2.2 (agent loop) and S2.14 (Completer);
+  it surfaces cache metrics through S2.12 (tracing) and S2.13 (logging).
 - S2.12 (tracing) and S2.13 (logging) are cross-cutting: they apply to
   S2.2 (agent loop), S2.5 (tool dispatch), and S2.11 (sub-agent
   composition). Instrumentation for each component is added when that
