@@ -34,4 +34,15 @@ type Event struct {
 	// Signature contains the opaque thinking signature for
 	// EventSignatureDelta events.
 	Signature string
+
+	// AgentName carries sub-agent attribution (S2.11). It is empty for
+	// top-level events and set to the sub-agent's name when a sub-agent
+	// forwards its stream to the parent's handler.
+	AgentName string
+
+	// Depth is the nesting depth of the agent that produced the event:
+	// 0 for the top-level agent, 1 for a sub-agent (S2.11). The zero value
+	// therefore denotes a top-level event, so existing handlers are
+	// unaffected.
+	Depth int
 }

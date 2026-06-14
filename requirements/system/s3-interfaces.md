@@ -44,6 +44,32 @@ completion request and return a streaming response.
 the Anthropic Go SDK (E2.2). The consuming application creates and owns the
 Anthropic client; the Completer wraps it.
 
+### S3.5: Sub-Agent API
+
+**Type:** Go package API
+**Consumers:** Agent application developers (G7.2) composing agents from
+sub-agents (S2.11).
+**Key operations:** Define a sub-agent declaratively (name, description, system
+prompt, tool subset, model, max iterations, one-shot vs. multi-turn, optional
+dedicated stream observer) and compile it into a Tool the parent registers like
+any other (S3.2). For full control, hand-author a sub-agent Tool using the
+exported building blocks instead.
+**Key characteristics:** The declarative definition mirrors the Tool contract
+(S3.2): the produced Tool's input schema accepts the sub-agent prompt (plus an
+optional session handle for multi-turn sub-agents), and its result is the
+sub-agent's final message. For multi-turn sub-agents the result's
+session-handle format is documented in the generated tool description, so the
+parent model can parse and resupply it (consistent with tool-use output-format
+guidance). The library propagates the parent's event stream and
+approval callback to the sub-agent through `context.Context` (consistent with
+OTEL span propagation per S2.12), so the Tool execution signature is unchanged
+and the parent's HITL gate and streaming reach the sub-agent without extra
+wiring (S2.8, S2.3). The escape hatch exposes the propagated stream, approval
+callback, and nesting depth, plus a stream-forwarding helper, so an application
+can build a sub-agent Tool by hand while still inheriting these. Progressive
+disclosure: the common case is one declarative call; full control is available
+without it.
+
 ## External System Interface
 
 ### S3.4: Anthropic Messages API (via SDK)

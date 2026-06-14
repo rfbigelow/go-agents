@@ -109,6 +109,37 @@ The parent's agent loop continues.
 **Pass condition:** The nested spawn is rejected with an error. The sub-agent
 receives an error tool result and can continue its own loop.
 
+### S6.33: Multi-Turn Sub-Agent
+
+**Verifies:** S2.11
+**Method:** Test a multi-turn sub-agent tool with mocked API responses. Invoke
+it once without a session handle, then again with the returned handle.
+**Pass condition:** The first invocation mints a session handle and returns it
+with the result. The second invocation resumes the same live instance with its
+prior conversation history intact (the resumed run observes earlier turns). A
+one-shot sub-agent, by contrast, starts fresh on every invocation.
+
+### S6.34: Sub-Agent HITL Propagation
+
+**Verifies:** S2.11, S2.8
+**Method:** Test a sub-agent whose tool set includes a HITL-flagged tool, with
+the parent configured with an approval callback and no callback set on the
+sub-agent. Mock API responses drive the sub-agent to call the HITL tool.
+**Pass condition:** The parent's approval callback is invoked for the
+sub-agent's HITL tool call and can identify it as a sub-agent call. Denial
+surfaces as an error tool result inside the sub-agent's loop.
+
+### S6.35: Sub-Agent Stream Isolation and Forwarding
+
+**Verifies:** S2.11, S2.3
+**Method:** Test a sub-agent with streaming events under two configurations:
+default (isolated) and forwarding enabled. For forwarding, run two sub-agents in
+parallel against a shared event handler under the race detector.
+**Pass condition:** By default the sub-agent's events do not reach the parent's
+handler. With forwarding, they reach it tagged with the sub-agent's name and
+nesting depth (depth 1), top-level events carry empty attribution, and parallel
+forwarding never invokes the handler concurrently.
+
 ### S6.18: HITL Approval
 
 **Verifies:** S2.8, S2.5
@@ -447,15 +478,15 @@ log entries.
 |-------------|-------------|
 | S2.1 | S6.1, S6.15 |
 | S2.2 | S6.1, S6.3, S6.4, S6.8, S6.15 |
-| S2.3 | S6.1, S6.15 |
+| S2.3 | S6.1, S6.15, S6.35 |
 | S2.4 | S6.2, S6.21, S6.15, S6.23 |
 | S2.5 | S6.2, S6.5, S6.6, S6.7, S6.18, S6.19, S6.20, S6.15, S6.23 |
 | S2.6 | S6.1, S6.15, S6.24 (round-trip rule) |
 | S2.7 | S6.8, S6.9 |
-| S2.8 | S6.18, S6.19, S6.20, S6.21, S6.22, S6.23, S6.28 |
+| S2.8 | S6.18, S6.19, S6.20, S6.21, S6.22, S6.23, S6.28, S6.34 |
 | S2.9 | S6.25 |
 | S2.10 | S6.27, S6.28, S6.29, S6.30, S6.31 |
-| S2.11 | S6.10, S6.11, S6.12 |
+| S2.11 | S6.10, S6.11, S6.12, S6.33, S6.34, S6.35 |
 | S2.12 | S6.16, S6.14 |
 | S2.13 | S6.17 |
 | S2.15 | S6.24 |

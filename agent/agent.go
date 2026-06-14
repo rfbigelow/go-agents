@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"go.opentelemetry.io/otel/attribute"
@@ -66,6 +67,35 @@ func (a *Agent) Run(ctx context.Context, message string, handler EventHandler) e
 	ctx, span := startSpan(ctx, "agent.run",
 		attribute.String("agent.model", string(a.config.Model)),
 	)
+
+	// Propagate a sub-agent runtime so tools dispatched during this run can
+	// inherit this agent's stream sink and approval gate and learn their
+	// nesting depth (S2.11). The incoming depth, if any, was set by the
+	// sub-agent tool that launched this agent as a child; the top-level run
+	// sees no incoming runtime and starts at depth 0.
+	depth := 0
+	if prev, ok := subAgentRuntimeFrom(ctx); ok {
+		depth = prev.depth
+	}
+	// Serialize the handler exposed to sub-agent tools so parallel sub-agents
+	// forwarding to this shared stream never invoke it concurrently (S2.3).
+	// The agent's own streaming during complete() does not overlap tool
+	// dispatch, so it continues to call handler directly.
+	var streamMu sync.Mutex
+	serialized := handler
+	if handler != nil {
+		serialized = func(e Event) {
+			streamMu.Lock()
+			defer streamMu.Unlock()
+			handler(e)
+		}
+	}
+	ctx = withSubAgentRuntime(ctx, subAgentRuntime{
+		parentHandler: serialized,
+		approval:      a.registry.approval,
+		depth:         depth,
+	})
+
 	var runErr error
 	var turns int
 	defer func() {

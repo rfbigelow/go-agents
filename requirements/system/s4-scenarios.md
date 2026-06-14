@@ -96,6 +96,13 @@ registered.
 - **Parallel sub-agents:** The LLM requests multiple tool calls in one turn,
   some of which spawn sub-agents. All run in parallel. Each sub-agent has its
   own conversation state and response stream (S2.11).
+- **Multi-turn sub-agent:** The sub-agent is configured for multi-turn
+  operation. The first invocation returns a session handle with its result; the
+  parent steers the sub-agent by calling the tool again with that handle, which
+  resumes the same live instance with its history intact (S2.11).
+- **Forwarded sub-agent stream:** A sub-agent is configured to forward its
+  events to the parent's stream; the application renders them tagged with the
+  sub-agent's name and depth, distinct from top-level output (S2.11, S2.3).
 
 **Error cases:**
 
