@@ -47,8 +47,13 @@ they are generated, rather than waiting for the full response.
 **Outputs:** Incremental content delivered to the consuming application via
 a callback or channel mechanism.
 **Rules:** Streaming is the default mode. The consuming application must be
-able to process partial responses.
-**Relates to:** S1.2 (Completer), G3.1 (reusability).
+able to process partial responses. Events may carry sub-agent attribution
+(the sub-agent's name and nesting depth) when a sub-agent forwards its stream
+to the parent (S2.11); top-level events carry empty attribution. When parallel
+sub-agents forward to a shared stream, the library serializes delivery so the
+callback is never invoked concurrently.
+**Relates to:** S1.2 (Completer), S2.11 (Sub-Agent Composition), G3.1
+(reusability).
 
 ### Agent ADT Stub
 
@@ -174,8 +179,14 @@ is sent back to the LLM.
 - Plan-level HITL (approving a multi-step plan before execution) is an
   application concern, not a library concern. Applications can implement
   plan approval using a HITL-flagged tool (e.g., a "propose_plan" tool).
+- A sub-agent's HITL-flagged tools are gated by the parent's approval
+  callback by default (S2.11), so a single human gate governs the whole
+  agent tree. A sub-agent may instead be configured with its own approval
+  callback. The callback can distinguish a sub-agent's tool calls from
+  top-level calls.
 **Relates to:** S2.4 (Tool Registration), S2.5 (Tool Dispatch), S1.3
-(Tool Registry), E6.1 (Application Controls Execution Flow).
+(Tool Registry), S2.11 (Sub-Agent Composition), E6.1 (Application Controls
+Execution Flow).
 
 #### S2.9: Extended Thinking
 
@@ -359,20 +370,49 @@ ordering at PreToolUse), S2.3 (Streaming), S2.12 (Tracing), S2.13
 **Description:** A tool can create and run a sub-agent — a separate agent
 loop with its own conversation state, tools, and response stream. The parent
 agent invokes a sub-agent as a tool call; the sub-agent runs to completion and
-returns its result. Multiple sub-agents can run in parallel (as part of parallel
-tool execution within a turn).
+returns its result as the tool result. Multiple sub-agents can run in parallel
+(as part of parallel tool execution within a turn).
+
+A sub-agent is one-shot by default: each invocation runs a fresh sub-agent to
+completion and discards its state. A sub-agent may opt in to multi-turn
+operation, in which case the live sub-agent instance is retained across parent
+tool calls and identified by a session handle. The first invocation mints the
+handle and returns it alongside the result; a later invocation supplying that
+handle resumes the same live instance, conversation history intact, so the
+parent can steer the sub-agent over several turns. This retention is in-memory
+and scoped to the parent run; it is distinct from S2.15 conversation resumption,
+which reconstructs a top-level Agent from persisted history.
 **Trigger:** The LLM requests a tool call whose implementation creates and runs
 a sub-agent.
-**Inputs:** Tool arguments passed to the sub-agent tool, which uses them to
-configure and run the sub-agent.
+**Inputs:** Tool arguments passed to the sub-agent tool — at minimum the prompt
+for the sub-agent, and, for multi-turn sub-agents, an optional session handle
+identifying a prior invocation to resume.
 **Outputs:** Sub-agent result returned as a tool result to the parent agent.
-**Rules:** Sub-agents cannot spawn further sub-agents (maximum nesting depth
-of one). Each sub-agent has its own conversation state, independent of the
-parent's. Each sub-agent produces its own response stream, separate from the
-parent's stream and from other sub-agents' streams, so that concurrent output
-can be rendered independently.
+For multi-turn sub-agents, the result also carries the session handle so the
+parent can resume the sub-agent on a subsequent turn. The sub-agent tool
+documents this output convention in its description, so the parent model knows
+how to parse the handle and resupply it.
+**Rules:**
+- Sub-agents cannot spawn further sub-agents (maximum nesting depth of one).
+  This limit is enforced at runtime: a sub-agent tool invoked from within a
+  sub-agent returns an error result rather than running.
+- Each sub-agent has its own conversation state, independent of the parent's
+  and of other sub-agents'.
+- Each sub-agent produces its own response stream, separate from the parent's
+  stream and from other sub-agents' streams, so that concurrent output can be
+  rendered independently. By default a sub-agent's stream is isolated — its
+  events are not delivered to the parent's event stream. A sub-agent may
+  optionally forward its events to the parent's stream; forwarded events carry
+  attribution (the sub-agent's name and nesting depth) so the application can
+  distinguish them, and concurrent forwarding from parallel sub-agents is
+  serialized (S2.3).
+- Human-in-the-loop approval propagates to sub-agents: the parent's approval
+  callback governs a sub-agent's HITL-flagged tools unless the sub-agent is
+  configured with its own callback. The callback can distinguish a sub-agent's
+  tool calls from the parent's (S2.8).
 **Relates to:** S2.2 (Agent Loop), S2.3 (Streaming), S2.5 (Tool
-Dispatch), G5.4 (Composing Agents with Sub-Agents).
+Dispatch), S2.8 (Human-in-the-Loop), S2.15 (Conversation Resumption),
+G5.4 (Composing Agents with Sub-Agents).
 
 ### Observability
 
@@ -775,8 +815,11 @@ the history violates.
   partial state is retained. The error identifies the failing rule.
 - An empty history is valid; passing an empty history is equivalent to the
   basic constructor (S2.1).
-- Resumption is for top-level Agents only. Sub-agents (S2.11) have ephemeral,
-  independent state and are not constructed from prior history.
+- Resumption is for top-level Agents only. Sub-agents (S2.11) have
+  independent state and are not constructed from prior history. A multi-turn
+  sub-agent retains a live in-memory instance across parent tool calls (S2.11),
+  but this is instance retention within a single parent run, not history-based
+  reconstruction.
 - The library checks structural and protocol-level invariants only. It does
   not verify that the history was produced by this library or by any
   particular model.
