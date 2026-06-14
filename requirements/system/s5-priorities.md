@@ -23,6 +23,7 @@ handle errors, and provide observability.
 - **S2.5** — Tool dispatch and execution
 - **S2.6** — Conversation state management
 - **S2.7** — Transient error handling
+- **S2.14** — Completer (LLM communication abstraction)
 - **S2.12** — Distributed tracing
 - **S2.13** — Structured logging
 
