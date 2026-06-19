@@ -98,9 +98,7 @@ func (r *ToolRegistry) dispatch(ctx context.Context, calls []ToolCall, log *slog
 
 		i := i
 		s := slots[i]
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			defer func() {
 				if p := recover(); p != nil {
 					results[i] = toolResult{
@@ -125,7 +123,7 @@ func (r *ToolRegistry) dispatch(ctx context.Context, calls []ToolCall, log *slog
 				return
 			}
 			results[i] = toolResult{ID: s.call.ID, Content: out}
-		}()
+		})
 	}
 	wg.Wait()
 
