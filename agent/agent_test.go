@@ -79,8 +79,8 @@ func (m *mockCompleter) buildStream(r scriptedResponse) *EventStream {
 		Role:  "assistant",
 		Model: "claude-sonnet-4-5",
 		Usage: anthropic.Usage{
-			InputTokens:             10,
-			OutputTokens:            5,
+			InputTokens:              10,
+			OutputTokens:             5,
 			CacheCreationInputTokens: r.CacheCreationInputTokens,
 			CacheReadInputTokens:     r.CacheReadInputTokens,
 		},

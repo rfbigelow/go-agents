@@ -1091,4 +1091,3 @@ func getAttr(r slog.Record, key string) (slog.Value, bool) {
 	})
 	return val, found
 }
-

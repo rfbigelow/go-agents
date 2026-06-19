@@ -52,11 +52,11 @@ type sdkSource struct {
 	stream *ssestream.Stream[anthropic.MessageStreamEventUnion]
 }
 
-func (s *sdkSource) Next() bool                                    { return s.stream.Next() }
-func (s *sdkSource) Current() anthropic.MessageStreamEventUnion    { return s.stream.Current() }
-func (s *sdkSource) Err() error                                    { return s.stream.Err() }
-func (s *sdkSource) Close() error                                  { return s.stream.Close() }
-func (s *sdkSource) accumulates() bool                             { return true }
+func (s *sdkSource) Next() bool                                 { return s.stream.Next() }
+func (s *sdkSource) Current() anthropic.MessageStreamEventUnion { return s.stream.Current() }
+func (s *sdkSource) Err() error                                 { return s.stream.Err() }
+func (s *sdkSource) Close() error                               { return s.stream.Close() }
+func (s *sdkSource) accumulates() bool                          { return true }
 
 // newEventStream creates an EventStream from an SDK stream.
 func newEventStream(stream *ssestream.Stream[anthropic.MessageStreamEventUnion]) *EventStream {
