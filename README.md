@@ -1,5 +1,7 @@
 # go-agents
 
+[![CI](https://github.com/rfbigelow/go-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/rfbigelow/go-agents/actions/workflows/ci.yml)
+
 A lightweight Go library for building LLM-based agents with the Anthropic API.
 
 ## Overview
