@@ -1,7 +1,11 @@
 # Contributing
 
-Thanks for working on go-agents. This document describes the development
-workflow.
+This is a personal project built to practice the
+[PEGS](requirements/README.md) requirements method. The repository is public for
+reference and learning, but **it is not open to outside contributions at this
+time** — unsolicited pull requests and issues may be closed without review.
+
+The rest of this document records the development workflow for the maintainer.
 
 ## Prerequisites
 
@@ -11,7 +15,7 @@ workflow.
 ## Local checks
 
 CI runs four checks on every push and pull request. Run the same commands
-locally before opening a PR — they are the source of truth, and there is
+locally before pushing — they are the source of truth, and there is
 deliberately no Makefile or task runner wrapping them (see requirement P5.3):
 
 ```sh
@@ -30,7 +34,8 @@ gofmt -w .
 ## Pull request workflow
 
 `main` is a protected branch: direct pushes are rejected (including for
-admins), so every change goes through a pull request.
+admins), so every change — including the maintainer's own — goes through a
+pull request.
 
 ```sh
 git checkout -b my-change
@@ -45,7 +50,8 @@ gh pr merge --auto --squash   # merges automatically once CI is green
 - A pull request is required for every change.
 - The CI `build` check must pass before merging, and the branch must be up to
   date with `main` first.
-- No approving review is required — you may merge your own PR once CI is green.
+- No approving review is required — the maintainer may merge their own PR once
+  CI is green.
 - Force-pushes and branch deletion are blocked.
 
 ## Requirements

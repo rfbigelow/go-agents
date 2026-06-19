@@ -125,9 +125,10 @@ See [requirements/](requirements/README.md) for the full PEGS requirements.
 
 ## Contributing
 
-`main` is protected, so changes land through pull requests that pass CI
-(`gofmt`, `go vet`, `go build`, `go test`). See [CONTRIBUTING.md](CONTRIBUTING.md)
-for the full workflow and the local checks to run first.
+This is a personal project and isn't open to outside contributions at this
+time. The development workflow — protected `main`, PR-based, gated by CI
+(`gofmt`, `go vet`, `go build`, `go test`) — is documented in
+[CONTRIBUTING.md](CONTRIBUTING.md) for reference.
 
 ## License
 
