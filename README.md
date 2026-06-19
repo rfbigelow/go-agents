@@ -79,7 +79,7 @@ func main() {
 go get github.com/rfbigelow/go-agents
 ```
 
-Requires Go 1.25+ and an Anthropic API key.
+Requires Go 1.26+ and an Anthropic API key.
 
 ## Running the Examples
 

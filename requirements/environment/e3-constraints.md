@@ -2,12 +2,12 @@
 
 ## Technical
 
-### E3.1: Go 1.25+
+### E3.1: Go 1.26+
 
 **Source:** Developer choice, based on language feature availability.
-**Description:** The library requires Go 1.25 or later.
+**Description:** The library requires Go 1.26 or later.
 **Impact:** The library may use any Go language features and standard library
-APIs available in Go 1.25.
+APIs available in Go 1.26.
 
 ### E3.2: Minimal External Dependencies
 

@@ -11,7 +11,7 @@ logging. See E2 for details.
 
 ## Critical Constraints
 
-The library is constrained to **Go 1.25+** (E3.1), **minimal dependencies**
+The library is constrained to **Go 1.26+** (E3.1), **minimal dependencies**
 beyond stdlib, the Anthropic SDK, and the OTEL Trace API (E3.2), **platform
 agnosticism** (E3.3), **MIT license compatibility** (E3.4), and **consumer
 resource control** (E3.5). See E3 for details.

@@ -9,7 +9,7 @@ requirements elicitation and code development. See P1 for details.
 ## Approach
 
 All technical choices are made by the developer (P2 — no imposed choices).
-Technology is Go 1.25+ with the Anthropic Go SDK (P5). Requirements follow the
+Technology is Go 1.26+ with the Anthropic Go SDK (P5). Requirements follow the
 PEGS Standard Plan with AI-assisted elicitation and review (P7). Development is
 iterative with no fixed timeline (P3).
 

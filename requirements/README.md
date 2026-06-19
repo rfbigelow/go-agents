@@ -29,7 +29,7 @@ with distributed traces (via OpenTelemetry) and structured logs (via slog).
 ## Environment Summary
 
 - **LLM provider:** Anthropic (via the Anthropic Go SDK)
-- **Language:** Go 1.25+
+- **Language:** Go 1.26+
 - **Dependencies:** Minimal — stdlib + Anthropic Go SDK + OpenTelemetry Trace API
 - **License:** MIT
 - **Platform:** Agnostic (no cloud/OS coupling)

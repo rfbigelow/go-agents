@@ -2,7 +2,7 @@
 
 ## Languages and Frameworks
 
-### P5.1: Go 1.25+
+### P5.1: Go 1.26+
 
 **Purpose:** Implementation language for the library and all supporting code.
 **Rationale:** Developer's language of choice. Strong concurrency primitives,
