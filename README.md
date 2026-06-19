@@ -123,6 +123,12 @@ See [requirements/](requirements/README.md) for the full PEGS requirements.
 - [OpenTelemetry Trace API](https://pkg.go.dev/go.opentelemetry.io/otel/trace)
 - Go standard library (slog, context)
 
+## Contributing
+
+`main` is protected, so changes land through pull requests that pass CI
+(`gofmt`, `go vet`, `go build`, `go test`). See [CONTRIBUTING.md](CONTRIBUTING.md)
+for the full workflow and the local checks to run first.
+
 ## License
 
 MIT
