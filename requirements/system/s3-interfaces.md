@@ -12,7 +12,8 @@ are Go API surfaces consumed by application code.
 **Key operations:** Create an Agent, configure capabilities, register tools,
 run a conversation, receive streamed responses, read the conversation
 history in the SDK-native message representation (for persistence and
-resumption per S2.6, S2.15).
+resumption per S2.6, S2.15), configure conversation compaction (S2.18), and
+read token usage (S2.20).
 **Key characteristics:** Idiomatic Go (context propagation, error returns,
 interfaces). Progressive disclosure — simple use cases require minimal
 configuration.
@@ -69,6 +70,23 @@ callback, and nesting depth, plus a stream-forwarding helper, so an application
 can build a sub-agent Tool by hand while still inheriting these. Progressive
 disclosure: the common case is one declarative call; full control is available
 without it.
+
+### S3.6: Compaction Strategy Interface
+
+**Type:** Go interface
+**Consumers:** Agent application developers (G7.2) configuring or customizing
+conversation compaction (S2.18, S2.21).
+**Key operations:** Given the current conversation history, produce a compacted
+history — a replacement for a prefix — cut at a boundary that preserves the
+protocol invariants; report whether the strategy's output is committed to the
+history or may be applied transiently to the outgoing request (S2.18).
+**Key characteristics:** Operates on the SDK-native message representation (E2.2),
+consistent with the conversation read/resume round-trip (S2.6, S2.15). The
+library provides ready-made implementations (S2.21 — hybrid summarization and
+sliding-window truncation); applications can implement the interface directly for
+custom behavior. A summarizing strategy receives the Agent's Completer (S2.14) to
+generate the summary. The strategy must preserve the five resumption invariants
+(S2.15), the committed-state invariant (S2.6), and the thinking-block rule (S2.9).
 
 ## External System Interface
 

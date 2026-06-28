@@ -39,6 +39,10 @@ are not required for a viable first release.
 - **S2.15** — Conversation resumption
 - **S2.16** — Effort
 - **S2.17** — Prompt caching
+- **S2.18** — Conversation compaction
+- **S2.19** — Compaction triggers
+- **S2.20** — Token usage reporting
+- **S2.21** — Library-provided compaction strategies
 
 ### Could
 
@@ -70,6 +74,16 @@ No requirements currently at this level.
   thinking is configured.
 - S2.17 (prompt caching) depends on S2.2 (agent loop) and S2.14 (Completer);
   it surfaces cache metrics through S2.12 (tracing) and S2.13 (logging).
+- S2.18 (conversation compaction) depends on S2.6 (conversation state) and
+  S2.15 (resumption — the archived prefix is re-injected through the resumption
+  round-trip); it interacts with S2.17 (a committed compaction invalidates the
+  cached prefix for one request). S2.15 should be implemented before S2.18.
+- S2.19 (compaction triggers) depends on S2.18 and S2.20 (proactive threshold)
+  and on S4.1 / the agent loop (reactive overflow).
+- S2.20 (token usage reporting) depends on S2.14 (Completer) and relates to
+  S2.12 (tracing) and S2.13 (logging), which already capture usage.
+- S2.21 (library-provided compaction strategies) depends on S2.18; the hybrid
+  summarization strategy additionally depends on S2.14 (Completer).
 - S2.12 (tracing) and S2.13 (logging) are cross-cutting: they apply to
   S2.2 (agent loop), S2.5 (tool dispatch), and S2.11 (sub-agent
   composition). Instrumentation for each component is added when that
