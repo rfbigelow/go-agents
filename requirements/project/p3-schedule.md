@@ -12,6 +12,8 @@
 | M6: Example Application | Planned | Dog-food application demonstrating the library's capabilities. | M2 (at minimum) |
 | M7: Sub-Agent Composition | Complete | A tool can create and run a sub-agent — a separate agent loop with its own conversation state, tools, and response stream (S2.11). Sub-agents run as tool calls (one-shot or multi-turn via session handle), support stream forwarding with attribution, propagate HITL approval to the parent, and are limited to one level of nesting. Demonstrated in `examples/sub-agent/`. | M2 |
 | M8: Prompt Caching | Complete | The Agent places cache-control breakpoints on the system prompt, tool definitions, and conversation history (S2.17) so the Anthropic API can cache and reuse stable prefixes. Enabled by default with opt-out; cache token metrics are surfaced through tracing (S2.12) and logging (S2.13). | M2 |
+| M9: Conversation Resumption | Planned | Implements S2.15 — construct an Agent from a prior message history, validating it against the five resumption invariants and round-tripping with `messages` (S2.6). Specified but not yet implemented; tracked by issue #4. | M1 |
+| M10: Context Compaction | Planned | Implements opt-in conversation compaction (S2.18–S2.21): a compaction-strategy extension point (S3.6) with commit/transient semantics, proactive token-threshold and reactive-on-overflow triggers (S2.19), token usage reporting (S2.20), library-provided hybrid-summarization and sliding-window strategies (S2.21), and archival of the replaced prefix for lossless resume. | M8, M9 |
 
 ## Iteration Plan
 
@@ -33,6 +35,10 @@ than by calendar dates. Development follows an iterative approach:
   remains in progress while the higher-numbered capability milestones (M7,
   M8) have shipped — milestones are ordered by dependency and sophistication,
   not by completion date.
+- **Later iterations (M9–M10):** Support long-running agents. Conversation
+  resumption (M9) closes the specified-but-unimplemented S2.15 gap and is a
+  prerequisite for context compaction (M10), whose archival path re-injects the
+  replaced prefix through the resumption round-trip.
 
 ## Constraints on Schedule
 

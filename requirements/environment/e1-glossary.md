@@ -64,8 +64,29 @@ configuration), bridges to the SDK, and returns a streaming completion.
 
 The process of summarizing or truncating conversation history to keep the
 context within the LLM's token limits while preserving essential information.
-A planned future capability of the Conversation State component, deferred
-until core capabilities are stable.
+An opt-in capability of the Conversation State component: when the consuming
+application configures a compaction strategy, the library compacts the history
+while preserving message-ordering and tool-use protocol conventions, and emits
+the replaced portion for the application to archive. Disabled by default; with
+no strategy configured the full history is retained.
+
+### Compaction Strategy
+
+A rule for how conversation history is compacted — for example, summarizing an
+older prefix into a single message, or dropping the oldest turns (a sliding
+window). A strategy may be library-provided or supplied by the consuming
+application. A strategy that relies on the LLM (summarization) is
+non-deterministic and is applied once and committed to the history; a cheap,
+deterministic strategy may instead be applied only to the outgoing request,
+leaving the stored history intact.
+
+### Compaction Configuration
+
+The settings that control conversation compaction for an Agent: an optional
+compaction strategy, optional trigger settings (such as a token threshold), and
+an optional archival callback that receives the replaced portion of history
+before it is dropped. When empty — the default — compaction does not run and the
+full history is retained.
 
 ### Context Window
 
@@ -73,6 +94,13 @@ The maximum number of tokens an LLM can process in a single request, including
 both the conversation history and the new response. When the conversation
 history exceeds the context window, the API returns an error and the consuming
 application must apply a strategy such as compaction or truncation to continue.
+
+### Token Usage
+
+The count of tokens consumed by a request to the LLM, as reported by the vendor
+API: input tokens, output tokens, and cache-related tokens (those written to and
+read from the prompt cache). Used to reason about cost and to decide when
+conversation history should be compacted.
 
 ### Agent Loop
 

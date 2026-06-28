@@ -271,6 +271,53 @@ round-trip through the read interface, and rejection of malformed histories.
   (5) a history ending with an assistant message that contains one or
       more `tool_use` blocks.
 
+### S6.36: Conversation Compaction
+
+**Verifies:** S2.18, S2.21
+**Method:** Test with mocked API responses and a configured compaction strategy.
+**Pass condition:**
+- With no strategy configured, history is never compacted: `messages` after a
+  multi-turn run equals the full unaltered history.
+- With a committing strategy configured and its trigger met, the committed
+  history is replaced by the compacted form; `messages` on the resulting Agent
+  satisfies the five S2.15 invariants and round-trips through
+  `new_agent_with_history` (S2.6).
+- Compaction cuts only on safe boundaries: no `tool_use` is separated from its
+  `tool_result`, and a retained tool-use turn keeps its `thinking` blocks and
+  signatures verbatim (S2.9).
+- The replaced prefix is delivered to the registered archival callback in the
+  SDK-native representation before being discarded; with no callback registered,
+  compaction still succeeds and the prefix is dropped.
+- The hybrid strategy (S2.21) invokes the Completer to produce a summary message
+  and is committed; the sliding-window strategy cuts on safe boundaries and makes
+  no Completer call.
+
+### S6.37: Compaction Triggers
+
+**Verifies:** S2.19
+**Method:** Test with mocked API responses, including a simulated context-window
+overflow error.
+**Pass condition:**
+- Proactive: with a token threshold configured, compaction is applied before the
+  LLM call once usage (S2.20) crosses the threshold, and not before.
+- Reactive: when a call overflows and a strategy is configured, the library
+  compacts and retries the call once, and the retried request reflects the
+  compacted history. If it still overflows, or if no strategy is configured, the
+  error is returned to the consumer and the offending message is not appended
+  (S4.1).
+- Manual: `compact` applies the configured strategy immediately and is a no-op
+  when none is configured.
+
+### S6.38: Token Usage Reporting
+
+**Verifies:** S2.20
+**Method:** Test with mocked API responses carrying known usage fields.
+**Pass condition:**
+- After a run, the `usage` query returns the per-run and cumulative input,
+  output, and cache (creation/read) token counts matching the mocked responses.
+- Cumulative usage accumulates across successive runs in the same conversation.
+- Reporting does not alter conversation state or behavior.
+
 ## Non-Functional Verification
 
 ### S6.13: Platform Agnosticism

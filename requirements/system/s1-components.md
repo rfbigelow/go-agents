@@ -45,8 +45,11 @@ constitute the conversation context.
 **Interacts with:** Agent.
 **Key properties:** Library-provided, consumer-controllable. The library manages
 conversation state by default but the consumer can influence resource-significant
-decisions such as history bounds and compaction strategy (per E3.5). Must support
-features like sliding context windows and context compaction.
+decisions such as history bounds and compaction strategy (per E3.5). Supports
+sliding context windows and context compaction as an opt-in capability (S2.18):
+when the consumer configures a strategy, the component compacts the history while
+preserving the protocol invariants (S2.6, S2.15) and emits the replaced prefix
+for external archival.
 
 ## Component Relationships
 

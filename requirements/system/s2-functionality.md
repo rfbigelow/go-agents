@@ -67,21 +67,26 @@ Creators:
 Commands:
   run: AGENT × MESSAGE → AGENT
   with_hooks: AGENT × HOOK_BUNDLE → AGENT
+  with_compaction: AGENT × COMPACTION_CONFIG → AGENT
+  compact: AGENT → AGENT
 
 Queries:
   messages: AGENT → LIST[MESSAGE]
   hooks: AGENT → HOOK_BUNDLE
+  compaction: AGENT → COMPACTION_CONFIG
+  usage: AGENT → TOKEN_USAGE
 
 Preconditions:
   new_agent_with_history(c, r, cfg, msgs): msgs satisfies the five S2.15 invariants
 ```
 
-The Agent's mutable state is its conversation history and its hook bundle.
-Each `run` appends the user message, drives the agent loop (calling the
-Completer, dispatching tools, repeating as needed), appends all resulting
-messages (assistant responses, tool results), and returns the updated
-Agent. The response is delivered incrementally via the event stream during
-the run. `run` leaves the hook bundle unchanged.
+The Agent's mutable state is its conversation history, its hook bundle, and
+its compaction configuration. Each `run` appends the user message, drives the
+agent loop (calling the Completer, dispatching tools, repeating as needed),
+appends all resulting messages (assistant responses, tool results), and returns
+the updated Agent. The response is delivered incrementally via the event stream
+during the run. `run` leaves the hook bundle and compaction configuration
+unchanged, but may compact the history if a configured trigger fires (S2.19).
 
 `messages` returns the conversation history in the SDK-native message
 representation (E1). It is the inverse of `new_agent_with_history`: the
@@ -104,6 +109,17 @@ no partial-update command; replacing the bundle is the only way to change
 hooks. Hooks may be set or replaced at any time, including between `run`
 calls; the agent loop reads the current bundle at each hook point.
 
+`with_compaction` replaces the Agent's compaction configuration in full and
+returns the updated Agent (S2.18). A COMPACTION_CONFIG is a record carrying an
+optional compaction strategy (S2.21, S3.6), optional trigger settings such as a
+token threshold (S2.19), and an optional archival callback for the replaced
+prefix (S2.18). The default on newly-constructed Agents is empty: no strategy,
+so compaction never runs and the full history is retained (the library's default
+behavior). `compact` applies the configured strategy to the committed history
+immediately and returns the updated Agent; it is the explicit (manual) trigger
+of S2.19 and is a no-op when no strategy is configured. `usage` returns the
+conversation's token usage (S2.20).
+
 **Configuration (CONFIG):**
 
 | Parameter | Description |
@@ -119,18 +135,23 @@ calls; the agent loop reads the current bundle at each hook point.
 **Command-query table:**
 
 ```
-                                        | messages                                            | hooks
-----------------------------------------+-----------------------------------------------------+--------------
-new_agent                               | empty list                                          | empty bundle
-new_agent_with_history(c, r, cfg, msgs) | msgs (when validation passes)                       | empty bundle
-run(a, msg)                             | messages(a) + user message + agent loop messages  | hooks(a)
-with_hooks(a, hb)                       | messages(a)                                         | hb
+                                        | messages                                            | hooks        | compaction    | usage
+----------------------------------------+-----------------------------------------------------+--------------+---------------+-----------------------------------------------
+new_agent                               | empty list                                          | empty bundle | empty         | zero
+new_agent_with_history(c, r, cfg, msgs) | msgs (when validation passes)                       | empty bundle | empty         | zero
+run(a, msg)                             | messages(a) + user message + agent loop messages,   | hooks(a)     | compaction(a) | usage(a) + this run's reported usage,
+                                        |   compacted if a configured trigger fires (S2.19)   |              |               |   including any summarization call (S2.21)
+with_hooks(a, hb)                       | messages(a)                                         | hb           | compaction(a) | usage(a)
+with_compaction(a, cc)                  | messages(a)                                         | hooks(a)     | cc            | usage(a)
+compact(a)                              | compacted history (S2.18), replaced prefix emitted  | hooks(a)     | compaction(a) | usage(a) + any summarization call (S2.21);
+                                        |   to the archival callback; messages(a) if none set |              |               |   usage(a) for non-LLM strategies
 ```
 
 `run` extends the conversation with the user message and all messages
 produced during the agent loop — assistant responses, tool-use
 requests, tool results — in protocol-correct order. If the loop involves
-multiple turns (tool use), all intermediate messages are included.
+multiple turns (tool use), all intermediate messages are included. The `usage`
+query reports cumulative token usage and is specified in S2.20.
 
 ### Progressive Capabilities
 
@@ -758,8 +779,9 @@ time when a session is resumed from prior history.
 **Rules:**
 - The library provides conversation state management with sensible defaults.
   The consuming application can control resource-significant aspects such as
-  history bounds and compaction strategy (per E3.5) but does not need to
-  manage message ordering or protocol compliance.
+  history bounds and compaction strategy (per E3.5; the compaction mechanism is
+  specified in S2.18) but does not need to manage message ordering or protocol
+  compliance.
 - The library exposes the conversation history through a read operation on
   the Agent (`messages`, see S2.1) that returns the messages in the
   SDK-native message representation (E1). This is the inverse of the
@@ -776,7 +798,7 @@ time when a session is resumed from prior history.
   completed turn. Lists returned by `messages` therefore always satisfy
   the five S2.15 resumption invariants without read-side cleanup.
 **Relates to:** S1.4 (Conversation State), S2.15 (Conversation Resumption),
-E3.5 (Consumer Resource Control).
+S2.18 (Conversation Compaction), E3.5 (Consumer Resource Control).
 
 ### S2.15: Conversation Resumption
 
@@ -840,3 +862,146 @@ the history violates.
 (Conversation State Management), S2.9 (Extended Thinking), S2.11
 (Sub-Agent Composition), E3.5 (Consumer Resource Control), G4.4 (Manage
 Conversation History).
+
+### S2.18: Conversation Compaction
+
+**Description:** When the consuming application configures a compaction strategy
+(opt-in; off by default), the library reduces the size of the conversation
+history so a long-running session can continue within the model's context
+window. A compaction strategy is a transform over the committed message history
+that produces a shorter replacement for a prefix of that history. The library
+applies a strategy only at boundaries that preserve the protocol invariants
+(S2.6, S2.15): it never splits a `tool_use`/`tool_result` pair and never drops
+the `thinking` blocks of a retained tool-use turn (S2.9). With no strategy
+configured, the library retains the full history unchanged (the library's
+default behavior).
+**Trigger:** A compaction trigger fires (S2.19) — proactive threshold, reactive
+overflow, or the explicit `compact` command.
+**Inputs:** The configured compaction strategy and archival callback (set via
+`with_compaction`); the current committed history.
+**Outputs:** A compacted conversation history; the replaced prefix delivered to
+the archival callback; an updated Agent.
+**Rules:**
+- **Opt-in.** Compaction is disabled unless the consumer configures a strategy.
+  Per E3.5 the library provides strategies (S2.21) but enables none by default
+  and does not impose compaction.
+- **Commitment is a property of the strategy.** A strategy whose output is
+  non-deterministic or expensive — notably LLM summarization (S2.21) — must be
+  *committed*: applied once, mutating the committed history, so the result is
+  computed a single time, is stable across subsequent turns, and becomes a new
+  cacheable prefix (S2.17). A strategy that is a pure, deterministic function of
+  the history (e.g., sliding-window truncation) may instead be applied
+  *transiently* to the outgoing request without mutating committed state,
+  provided its output is stable across consecutive turns (its window advances in
+  chunks, not every turn). A transient transform that would change the request
+  prefix on every turn must be committed instead, to avoid invalidating the
+  conversation cache (S2.17) on every call.
+- **Invariant preservation.** The post-compaction committed history satisfies the
+  S2.6 committed-state invariant and the five S2.15 resumption invariants with no
+  read-side cleanup; `messages` (S2.6) on a compacted Agent still round-trips
+  through `new_agent_with_history` (S2.15). Compaction cuts only on turn
+  boundaries that keep every `tool_use` with its `tool_result` and retains the
+  `thinking` blocks of any retained tool-use turn verbatim, including signatures
+  (S2.9).
+- **Archival of the replaced prefix.** Before a committed compaction discards the
+  replaced prefix, the library delivers that prefix to a consumer-registered
+  archival callback in the SDK-native representation (E1), so the application can
+  persist it externally for lossless resume (S2.15). The library retains only the
+  compacted working history (bounded memory, E3.5); external persistence of the
+  archived prefix is the application's responsibility, as with conversation
+  persistence under S2.6. If no archival callback is registered, the replaced
+  prefix is discarded.
+- **Caching.** A committed compaction invalidates the cached conversation prefix
+  for one request (S2.17); the compacted prefix is cached on the following
+  request. Strategies should therefore compact infrequently and substantially
+  rather than trimming a little each turn.
+
+**Relates to:** S1.4 (Conversation State), S2.6 (Conversation State Management),
+S2.15 (Conversation Resumption), S2.17 (Prompt Caching), S2.9 (Extended
+Thinking), S2.19 (Compaction Triggers), S2.21 (Library-Provided Compaction
+Strategies), S3.6 (Compaction Strategy Interface), E3.5 (Consumer Resource
+Control), G4.4 (Manage Conversation History).
+
+### S2.19: Compaction Triggers
+
+**Description:** Defines when the library applies a configured compaction
+strategy (S2.18). Triggers are active only when a strategy is configured;
+otherwise none fire and the full history is retained.
+**Trigger:** Evaluated around each LLM call during the agent loop, and on the
+explicit `compact` command.
+**Inputs:** The configured strategy and trigger settings (e.g., a token
+threshold); token usage (S2.20); the API's context-window overflow error.
+**Outputs:** A compaction applied (or not) per the rules below.
+**Rules:**
+- **Manual.** The consumer can invoke compaction explicitly between runs via
+  `compact` on the Agent ADT, independent of any automatic trigger.
+- **Proactive (token threshold).** When the consumer configures a token
+  threshold, the library applies the strategy before an LLM call once the
+  conversation's token usage (S2.20) crosses that threshold, keeping the request
+  within the context window proactively. The threshold may be expressed relative
+  to the model's context window or as an absolute token count; with no threshold
+  set, no proactive compaction occurs.
+- **Reactive (on overflow).** When an LLM call fails because the request exceeds
+  the model's context window (the overflow case of S4.1) and a strategy is
+  configured, the library applies the strategy and retries the call once. If the
+  request still overflows after one compaction, or if no strategy is configured,
+  the library returns the error to the consumer without appending the offending
+  message (S4.1). Reactive compaction is a fallback; the proactive trigger is the
+  primary mechanism.
+
+**Relates to:** S2.18 (Conversation Compaction), S2.20 (Token Usage Reporting),
+S4.1 (Simple Conversation scenario), E3.5 (Consumer Resource Control).
+
+### S2.20: Token Usage Reporting
+
+**Description:** The library surfaces token usage to the consuming application so
+it can drive compaction thresholds (S2.19) and reason about cost. Usage is
+already captured from each API response and emitted to tracing and logging
+(S2.12, S2.13); this requirement also exposes it programmatically through the
+Agent.
+**Trigger:** Each LLM call completes with usage data in the response.
+**Inputs:** The `usage` the Anthropic API reports on each response — input
+tokens, output tokens, cache-creation tokens, and cache-read tokens.
+**Outputs:** Per-run and cumulative token usage readable by the consumer through
+the `usage` query on the Agent.
+**Rules:**
+- After a `run`, the consumer can read the token usage attributable to that run
+  and the cumulative usage for the conversation, broken down into input, output,
+  and cache (creation/read) tokens.
+- Reported usage reflects what the API returned, including the effect of prompt
+  caching (S2.17) and of any compaction already applied (S2.18).
+- Cumulative usage includes every Completer call the Agent makes on the
+  conversation's behalf, including a summarizing strategy's own call (S2.21).
+- Reporting is read-only and imposes no behavior by itself; the proactive
+  trigger (S2.19) is what consumes a configured threshold.
+
+**Relates to:** S2.19 (Compaction Triggers), S2.14 (Completer), S2.17 (Prompt
+Caching), S2.12 (Distributed Tracing), S2.13 (Structured Logging).
+
+### S2.21: Library-Provided Compaction Strategies
+
+**Description:** The library ships ready-to-use compaction strategies (S2.18) so
+consumers need not implement their own. None is enabled by default (S2.18 is
+opt-in); the consumer selects a provided strategy or supplies a custom one
+(S3.6).
+**Trigger:** Consumer configures a provided strategy via `with_compaction`.
+**Inputs:** The committed history; for summarizing strategies, the Agent's
+Completer (S2.14) and model.
+**Outputs:** A compacted history per S2.18.
+**Rules:**
+- **Hybrid summarization (recommended default).** Replaces an older prefix of the
+  history with a single generated summary message and retains a recent verbatim
+  window of turns. It invokes the Agent's Completer (S2.14) to produce the
+  summary, so it is non-deterministic and is always committed (S2.18). The
+  summary message and the retained window together satisfy the S2.15 invariants.
+- **Sliding-window truncation.** Drops the oldest turns, cutting only on safe
+  boundaries (S2.18), keeping a fixed recent window. It is deterministic, makes
+  no LLM call, and may run transiently (S2.18) when its window advances in
+  chunks.
+- Selecting a provided strategy is opt-in and overridable; consumers can
+  implement S3.6 directly for custom behavior, such as selective payload pruning
+  that shrinks large `tool_result` bodies while keeping turn structure.
+
+**Relates to:** S2.18 (Conversation Compaction), S2.14 (Completer), S2.17
+(Prompt Caching), S3.6 (Compaction Strategy Interface), E3.5 (Consumer Resource
+Control).

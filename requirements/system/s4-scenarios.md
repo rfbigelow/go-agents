@@ -21,10 +21,12 @@ registered.
 **Alternate flows:**
 
 - **Context window exceeded:** The conversation history plus the new message
-  exceeds the model's context window. The API returns an error. The Agent
-  returns the error to the consumer without appending the new message to
-  history. The consumer can apply a conversation management strategy (clear,
-  compaction) and retry.
+  exceeds the model's context window and the API returns an error. If a
+  compaction strategy is configured (S2.18, S2.19), the Agent compacts the
+  history and retries the call once; if the request still overflows, or if no
+  strategy is configured, the Agent returns the error to the consumer without
+  appending the new message to history. The consumer can then apply its own
+  conversation management strategy (clear, compaction) and retry.
 
 **Error cases:**
 
