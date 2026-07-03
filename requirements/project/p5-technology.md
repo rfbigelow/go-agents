@@ -28,3 +28,12 @@ consistent with E3.2 (minimal external dependencies).
 
 **Purpose:** Dependency management.
 **Rationale:** Standard Go dependency management. No alternative needed.
+
+### P5.5: GitHub Actions (CI and Release Automation)
+
+**Purpose:** Continuous integration (gofmt, vet, build, test, version check)
+and automated release cutting (tagging and publishing per P4.5).
+**Rationale:** Native to the GitHub hosting already in use; no additional
+infrastructure or credentials to manage. Workflows are plain YAML invoking
+the standard toolchain (P5.3), keeping the automation dependency-light and
+consistent with E3.2.

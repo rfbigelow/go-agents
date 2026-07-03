@@ -40,6 +40,21 @@ tool-level human approval (M3).
 **Acceptance:** Each example runs end-to-end against the live Anthropic
 API and demonstrates idiomatic usage of the capability it targets.
 
+### P4.5: Versioned Releases
+
+**Description:** Tagged semantic versions of the module, published as GitHub
+Releases. The `Version` constant in `agent/version.go` is the single source
+of truth; CI tags and publishes automatically. Stable releases are cut from
+`main` on merge; pre-release versions (e.g. `v0.2.0-rc.1`) are cut from
+feature branches and never appear on `main`. The process is documented in
+CONTRIBUTING.md ("Releases and versioning").
+**Audience:** Library consumers resolving the module through the Go module
+system.
+**Acceptance:** A merge to `main` carrying a new stable `Version` yields a
+matching git tag and GitHub Release; a branch push carrying an untagged
+pre-release `Version` yields a GitHub pre-release; CI blocks pre-release
+versions from merging to `main`.
+
 ## Major Tasks
 
 - Design and implement core abstractions (Agent, Completer, Tool interface)
