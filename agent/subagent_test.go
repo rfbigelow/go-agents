@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"sync"
 	"testing"
@@ -228,6 +229,171 @@ func TestSubAgent_HITLPropagation(t *testing.T) {
 			t.Errorf("result = %q, want the sub-agent's post-denial message", got)
 		}
 	})
+}
+
+// newPanicGateSubAgent builds a sub-agent tool whose child registry has one
+// HITL-flagged tool, recording whether it ever executes. def.Tools is set;
+// callers control gate sharing via def.Approval.
+func newPanicGateSubAgent(t *testing.T, def SubAgentDefinition, executed *bool) Tool {
+	t.Helper()
+	childReg := NewToolRegistry()
+	childReg.SetApprovalCallback(func(context.Context, ToolCall) (bool, error) {
+		return false, nil // placeholder; replaced by the bridge
+	})
+	mustRegister(t, childReg, Tool{
+		Name: "danger",
+		HITL: true,
+		Execute: func(context.Context, json.RawMessage) (string, error) {
+			*executed = true
+			return "did it", nil
+		},
+	})
+	child := &mockCompleter{
+		responses: []scriptedResponse{
+			{ToolCalls: []scriptedToolCall{{ID: "t1", Name: "danger", Input: json.RawMessage(`{}`)}}},
+			{Text: "child done"},
+		},
+	}
+	def.Tools = childReg
+	tool, err := NewSubAgentTool(child, def)
+	if err != nil {
+		t.Fatalf("NewSubAgentTool: %v", err)
+	}
+	return tool
+}
+
+func TestSubAgent_SharedGatePanic_KeepsTypedError(t *testing.T) {
+	// S6.39(a), tool level: with no callback on the definition the gate is
+	// the inherited parent callback; its panic must surface from Execute
+	// as a typed *ApprovalPanicError so the parent's dispatch aborts.
+	var executed bool
+	tool := newPanicGateSubAgent(t, SubAgentDefinition{
+		Name: "agent", Description: "d", Model: subTestModel,
+	}, &executed)
+
+	panicGate := func(context.Context, ToolCall) (bool, error) {
+		panic("shared gate gone wild")
+	}
+	_, err := callSubAgent(t, tool, `{"prompt":"do danger"}`, nil, panicGate)
+	if err == nil {
+		t.Fatal("expected error from Execute")
+	}
+	var panicErr *ApprovalPanicError
+	if !errors.As(err, &panicErr) {
+		t.Fatalf("expected *ApprovalPanicError to survive the sub-agent boundary, got %T: %v", err, err)
+	}
+	if executed {
+		t.Error("gated tool must not execute when the shared gate panics")
+	}
+}
+
+func TestSubAgent_LocalGatePanic_FlattensError(t *testing.T) {
+	// S6.39(b), tool level: the definition's own callback panics. The
+	// failure stays isolated — Execute returns an error that does NOT
+	// match *ApprovalPanicError, so the parent treats it as an ordinary
+	// failed tool (S6.11).
+	var executed bool
+	tool := newPanicGateSubAgent(t, SubAgentDefinition{
+		Name: "agent", Description: "d", Model: subTestModel,
+		Approval: func(context.Context, ToolCall) (bool, error) {
+			panic("local gate gone wild")
+		},
+	}, &executed)
+
+	healthyParent := func(context.Context, ToolCall) (bool, error) {
+		t.Error("parent callback must not gate a sub-agent with its own callback")
+		return true, nil
+	}
+	_, err := callSubAgent(t, tool, `{"prompt":"do danger"}`, nil, healthyParent)
+	if err == nil {
+		t.Fatal("expected error from Execute")
+	}
+	var panicErr *ApprovalPanicError
+	if errors.As(err, &panicErr) {
+		t.Fatalf("local-gate panic must not keep the typed error, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "local gate gone wild") {
+		t.Errorf("flattened error should retain the panic description, got %q", err.Error())
+	}
+	if executed {
+		t.Error("gated tool must not execute when the local gate panics")
+	}
+}
+
+func TestSubAgent_SharedGatePanic_AbortsParentRun(t *testing.T) {
+	// S6.39(a), end to end: the parent runs a sub-agent tool whose HITL
+	// gate is the parent's own (panicking) callback. The parent's run
+	// must return the typed error and roll back its partial turn.
+	var executed bool
+	tool := newPanicGateSubAgent(t, SubAgentDefinition{
+		Name: "delegate", Description: "d", Model: subTestModel,
+	}, &executed)
+
+	parentReg := NewToolRegistry()
+	parentReg.SetApprovalCallback(func(context.Context, ToolCall) (bool, error) {
+		panic("shared gate gone wild")
+	})
+	mustRegister(t, parentReg, tool)
+
+	parent := &mockCompleter{
+		responses: []scriptedResponse{
+			{ToolCalls: []scriptedToolCall{{ID: "p1", Name: "delegate", Input: json.RawMessage(`{"prompt":"go"}`)}}},
+		},
+	}
+	a := NewAgent(parent, parentReg, Config{Model: subTestModel, MaxTokens: 100})
+
+	err := a.Run(context.Background(), "delegate the danger", nil)
+	var panicErr *ApprovalPanicError
+	if !errors.As(err, &panicErr) {
+		t.Fatalf("expected *ApprovalPanicError from parent Run, got %T: %v", err, err)
+	}
+	if got := len(a.Conversation()); got != 0 {
+		t.Errorf("expected parent partial turn rolled back, got %d messages", got)
+	}
+	if executed {
+		t.Error("gated tool must not execute")
+	}
+}
+
+func TestSubAgent_LocalGatePanic_ParentContinues(t *testing.T) {
+	// S6.39(b), end to end: the sub-agent's own gate panics; the parent
+	// receives an error tool result and completes its loop normally.
+	var executed bool
+	tool := newPanicGateSubAgent(t, SubAgentDefinition{
+		Name: "delegate", Description: "d", Model: subTestModel,
+		Approval: func(context.Context, ToolCall) (bool, error) {
+			panic("local gate gone wild")
+		},
+	}, &executed)
+
+	parentReg := NewToolRegistry()
+	mustRegister(t, parentReg, tool)
+
+	parent := &mockCompleter{
+		responses: []scriptedResponse{
+			{ToolCalls: []scriptedToolCall{{ID: "p1", Name: "delegate", Input: json.RawMessage(`{"prompt":"go"}`)}}},
+			{Text: "recovered and moved on"},
+		},
+	}
+	a := NewAgent(parent, parentReg, Config{Model: subTestModel, MaxTokens: 100})
+
+	if err := a.Run(context.Background(), "delegate the danger", nil); err != nil {
+		t.Fatalf("parent Run must continue past a sub-agent-local gate panic: %v", err)
+	}
+	// user, assistant(tool_use), user(tool_result), assistant(final).
+	if got := len(a.Conversation()); got != 4 {
+		t.Errorf("expected full 4-message turn retained, got %d", got)
+	}
+	// The error result fed to the parent LLM carries the panic description.
+	last := parent.capturedRequests[len(parent.capturedRequests)-1]
+	resultMsg := last.Messages[2]
+	raw, _ := json.Marshal(resultMsg)
+	if !strings.Contains(string(raw), "local gate gone wild") {
+		t.Errorf("tool_result should carry the panic description, got %s", raw)
+	}
+	if executed {
+		t.Error("gated tool must not execute")
+	}
 }
 
 func TestSubAgent_StreamIsolatedByDefault(t *testing.T) {

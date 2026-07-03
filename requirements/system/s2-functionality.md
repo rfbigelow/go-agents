@@ -197,6 +197,20 @@ is sent back to the LLM.
   the callback is not retained. Rationale: a broken approval gate is a
   safety issue, not a recoverable tool-execution issue. Continuing the
   loop after a faulty gate would be worse than failing loudly.
+- The panic rule follows the gate, not the run. When a sub-agent's HITL
+  tools are gated by the shared (inherited) parent callback (S2.11) and
+  that callback panics during the sub-agent's run, the failure is fatal
+  to the parent run as well: the sub-agent tool surfaces the
+  approval-panic error to the parent's dispatch, which aborts exactly as
+  if the parent's own approval pass had panicked — the parent's partial
+  turn is rolled back. Rationale: the broken gate governs the parent's
+  future HITL calls too; continuing would contradict the rule above.
+  When the sub-agent is configured with its own approval callback, its
+  panic is fatal only to the sub-agent's run — the parent's gate is
+  unaffected, so the parent receives an ordinary error tool result and
+  continues (failure isolation). Sibling tools already executing in the
+  parent's batch complete before the abort; their results are discarded
+  with the rolled-back turn.
 - Plan-level HITL (approving a multi-step plan before execution) is an
   application concern, not a library concern. Applications can implement
   plan approval using a HITL-flagged tool (e.g., a "propose_plan" tool).
@@ -430,7 +444,10 @@ how to parse the handle and resupply it.
 - Human-in-the-loop approval propagates to sub-agents: the parent's approval
   callback governs a sub-agent's HITL-flagged tools unless the sub-agent is
   configured with its own callback. The callback can distinguish a sub-agent's
-  tool calls from the parent's (S2.8).
+  tool calls from the parent's (S2.8). A panic in the shared callback is
+  fatal to the parent run as well, not just the sub-agent's; a panic in a
+  sub-agent's own callback stays isolated to the sub-agent (S2.8 panic
+  rule).
 **Relates to:** S2.2 (Agent Loop), S2.3 (Streaming), S2.5 (Tool
 Dispatch), S2.8 (Human-in-the-Loop), S2.15 (Conversation Resumption),
 G5.4 (Composing Agents with Sub-Agents).

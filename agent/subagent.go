@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -157,6 +158,25 @@ func (s *sessionStore) getOrCreate(id string, mk func() *Agent) (string, *sessio
 }
 
 // NewSubAgentTool compiles a SubAgentDefinition into a Tool (S2.11, S3.5). The
+// subAgentRunError converts a child run failure into the error the parent's
+// dispatch should see (S2.8 panic rule). An approval-callback panic keeps
+// its *ApprovalPanicError type only when the gate is shared (no callback on
+// the definition, so the parent's was inherited) — the parent's dispatch
+// treats that as fatal to its own run. A panic of the sub-agent's own
+// callback is flattened to a plain error so it stays an ordinary error tool
+// result and the parent loop continues (failure isolation, S6.11). Every
+// other failure passes through unchanged.
+func subAgentRunError(def SubAgentDefinition, runErr error) error {
+	var panicErr *ApprovalPanicError
+	if !errors.As(runErr, &panicErr) {
+		return runErr
+	}
+	if def.Approval == nil {
+		return runErr
+	}
+	return errors.New(runErr.Error())
+}
+
 // completer is shared by every sub-agent instance the tool runs. The returned
 // Tool's input schema accepts the sub-agent prompt (plus an optional
 // session_id for multi-turn sub-agents); its result is the sub-agent's final
@@ -300,7 +320,7 @@ func NewSubAgentTool(completer Completer, def SubAgentDefinition) (Tool, error) 
 				entry.mu.Unlock()
 				endSpan(span, runErr)
 				if runErr != nil {
-					return "", runErr
+					return "", subAgentRunError(def, runErr)
 				}
 				result := final.String()
 				return fmt.Sprintf("%s\n\n%s%s", result, sessionIDPrefix, id), nil
@@ -310,7 +330,7 @@ func NewSubAgentTool(completer Completer, def SubAgentDefinition) (Tool, error) 
 			runErr = child.Run(childCtx, in.Prompt, childHandler)
 			endSpan(span, runErr)
 			if runErr != nil {
-				return "", runErr
+				return "", subAgentRunError(def, runErr)
 			}
 			return final.String(), nil
 		},
