@@ -27,6 +27,50 @@ jobs:
             exit 1
           fi
 
+      - name: Check version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          file=agent/version.go
+          count="$(grep -c '^const Version = ' "$file" || true)"
+          if [ "${count:-0}" -ne 1 ]; then
+            echo "expected exactly one 'const Version = ...' line in $file, found ${count:-0}" >&2
+            exit 1
+          fi
+          version="$(sed -n 's/^const Version = "\(v[^"]*\)"$/\1/p' "$file")"
+          core='(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
+          ident='(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
+          if [[ ! "$version" =~ ^v${core}(-${ident}(\.${ident})*)?$ ]]; then
+            echo "Version '$version' in $file is not a valid Go module semver" >&2
+            exit 1
+          fi
+          # The remaining rules only apply to PRs targeting main.
+          if [ "$EVENT_NAME" != "pull_request" ] || [ "$BASE_REF" != "main" ]; then
+            exit 0
+          fi
+          git fetch --quiet --depth=1 origin main
+          base_version="$(git show FETCH_HEAD:agent/version.go 2>/dev/null \
+            | sed -n 's/^const Version = "\(v[^"]*\)"$/\1/p')"
+          if [ -z "$base_version" ]; then
+            exit 0  # bootstrap: main has no version.go yet
+          fi
+          if [ "$version" = "$base_version" ]; then
+            exit 0  # no bump: merging is a release no-op by design
+          fi
+          if [[ ! "$version" =~ ^v${core}$ ]]; then
+            echo "Version must be stable (no pre-release suffix) before merging to main: $version" >&2
+            exit 1
+          fi
+          if [ "$(printf '%s\n%s\n' "$base_version" "$version" | sort -V | head -n1)" != "$base_version" ]; then
+            echo "Version $version must be greater than main's $base_version" >&2
+            exit 1
+          fi
+          if git ls-remote --exit-code origin "refs/tags/$version" > /dev/null; then
+            echo "Tag $version already exists; bump to an untagged version" >&2
+            exit 1
+          fi
+
       - name: Vet
         run: go vet ./...
 

@@ -1,0 +1,100 @@
+name: Release
+
+on:
+  push:
+    branches: ['**']
+
+permissions:
+  contents: write
+
+# Serialize all release runs so two pushes can never race to create the same
+# tag. Queued runs are not cancelled; they re-check the remote and exit as
+# no-ops once the tag exists.
+concurrency:
+  group: release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Extract version
+        id: version
+        run: |
+          file=agent/version.go
+          count="$(grep -c '^const Version = ' "$file" || true)"
+          if [ "${count:-0}" -ne 1 ]; then
+            echo "expected exactly one 'const Version = ...' line in $file, found ${count:-0}" >&2
+            exit 1
+          fi
+          version="$(sed -n 's/^const Version = "\(v[^"]*\)"$/\1/p' "$file")"
+          if [ -z "$version" ]; then
+            echo "could not parse Version from $file (must be: const Version = \"vX.Y.Z\")" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Classify version
+        id: classify
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          core='(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
+          ident='(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
+          if [[ "$VERSION" =~ ^v${core}$ ]]; then
+            kind=stable
+          elif [[ "$VERSION" =~ ^v${core}-${ident}(\.${ident})*$ ]]; then
+            kind=prerelease
+          else
+            echo "Version '$VERSION' is not a valid Go module semver (build metadata is not allowed)" >&2
+            exit 1
+          fi
+          if [ "$GITHUB_REF_NAME" = "main" ] && [ "$kind" = "prerelease" ]; then
+            echo "Version on main must be stable, got '$VERSION'" >&2
+            exit 1
+          fi
+          if [ "$GITHUB_REF_NAME" != "main" ] && [ "$kind" = "stable" ]; then
+            echo "Stable version on a branch; stable releases are cut from main. Nothing to do."
+            kind=skip
+          fi
+          echo "kind=$kind" >> "$GITHUB_OUTPUT"
+
+      - name: Check whether tag already exists
+        id: tag
+        if: steps.classify.outputs.kind != 'skip'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if git ls-remote --exit-code origin "refs/tags/$VERSION" > /dev/null; then
+            echo "Tag $VERSION already exists; nothing to release."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-go@v6
+        if: steps.classify.outputs.kind != 'skip' && steps.tag.outputs.exists == 'false'
+        with:
+          go-version-file: go.mod
+
+      - name: Verify build and tests before tagging
+        if: steps.classify.outputs.kind != 'skip' && steps.tag.outputs.exists == 'false'
+        run: |
+          go vet ./...
+          go build ./...
+          go test ./...
+
+      - name: Create tag and GitHub release
+        if: steps.classify.outputs.kind != 'skip' && steps.tag.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          KIND: ${{ steps.classify.outputs.kind }}
+        run: |
+          args=(--target "$GITHUB_SHA" --title "$VERSION" --generate-notes)
+          if [ "$KIND" = "prerelease" ]; then
+            args+=(--prerelease)
+          fi
+          gh release create "$VERSION" "${args[@]}"
