@@ -389,6 +389,121 @@ func TestAgent_ToolLoop_MidLoopErrorNoRollback(t *testing.T) {
 	}
 }
 
+func TestAgent_HITLApprovalPanic_RollsBackPartialTurn(t *testing.T) {
+	// S6.22: the approval callback panics on the first turn. Run returns
+	// an error representing the panic, the partial turn (user message and
+	// assistant tool_use response) is not retained, and the panic details
+	// are logged (S2.13).
+	logHandler := newCapturingHandler()
+	registry := NewToolRegistry()
+	registry.SetApprovalCallback(func(_ context.Context, _ ToolCall) (bool, error) {
+		panic("approval gone wild")
+	})
+	var executed bool
+	mustRegister(t, registry, Tool{
+		Name: "sensitive",
+		HITL: true,
+		Execute: func(_ context.Context, _ json.RawMessage) (string, error) {
+			executed = true
+			return "", nil
+		},
+	})
+
+	mock := &mockCompleter{
+		responses: []scriptedResponse{
+			{ToolCalls: []scriptedToolCall{{ID: "toolu_1", Name: "sensitive", Input: json.RawMessage(`{}`)}}},
+		},
+	}
+	a := NewAgent(mock, registry, Config{
+		Model: "claude-sonnet-4-5", MaxTokens: 100,
+		Logger: slog.New(logHandler),
+	})
+
+	err := a.Run(context.Background(), "do the thing", nil)
+	if err == nil {
+		t.Fatal("expected error from Run")
+	}
+	var panicErr *ApprovalPanicError
+	if !errors.As(err, &panicErr) {
+		t.Fatalf("expected *ApprovalPanicError, got %T: %v", err, err)
+	}
+	if panicErr.ToolName != "sensitive" {
+		t.Errorf("ToolName = %q, want %q", panicErr.ToolName, "sensitive")
+	}
+	if got := fmt.Sprint(panicErr.Recovered); got != "approval gone wild" {
+		t.Errorf("recovered value = %q, want the panic value", got)
+	}
+	if executed {
+		t.Error("HITL tool must not execute when the approval callback panics")
+	}
+
+	if got := len(a.Conversation()); got != 0 {
+		t.Errorf("expected empty conversation after approval panic, got %d messages", got)
+	}
+
+	var logged bool
+	for _, r := range logHandler.records {
+		if r.Message != "approval callback panic" {
+			continue
+		}
+		logged = true
+		if v, ok := getAttr(r, "panic"); !ok {
+			t.Error("missing panic attr on approval callback panic record")
+		} else if v.String() != "approval gone wild" {
+			t.Errorf("panic attr = %q, want the panic value", v.String())
+		}
+	}
+	if !logged {
+		t.Error("did not find 'approval callback panic' log record")
+	}
+}
+
+func TestAgent_HITLApprovalPanic_PreservesCompletedRuns(t *testing.T) {
+	// S2.8: conversation state is preserved up to the last completed
+	// turn. A prior successful Run's history survives; only the
+	// panicking Run's partial turn is rolled back.
+	registry := NewToolRegistry()
+	shouldPanic := false
+	registry.SetApprovalCallback(func(_ context.Context, _ ToolCall) (bool, error) {
+		if shouldPanic {
+			panic("gate broke between runs")
+		}
+		return true, nil
+	})
+	mustRegister(t, registry, Tool{
+		Name: "sensitive",
+		HITL: true,
+		Execute: func(_ context.Context, _ json.RawMessage) (string, error) {
+			return "done", nil
+		},
+	})
+
+	mock := &mockCompleter{
+		responses: []scriptedResponse{
+			{Text: "hello"},
+			{ToolCalls: []scriptedToolCall{{ID: "toolu_1", Name: "sensitive", Input: json.RawMessage(`{}`)}}},
+		},
+	}
+	a := NewAgent(mock, registry, Config{Model: "claude-sonnet-4-5", MaxTokens: 100})
+
+	if err := a.Run(context.Background(), "first", nil); err != nil {
+		t.Fatalf("first Run failed: %v", err)
+	}
+	base := a.Conversation()
+
+	shouldPanic = true
+	err := a.Run(context.Background(), "second", nil)
+	var panicErr *ApprovalPanicError
+	if !errors.As(err, &panicErr) {
+		t.Fatalf("expected *ApprovalPanicError, got %T: %v", err, err)
+	}
+
+	conv := a.Conversation()
+	if len(conv) != len(base) {
+		t.Fatalf("expected conversation preserved at %d messages from the completed run, got %d", len(base), len(conv))
+	}
+}
+
 func ptrInt64Agent(v int64) *int64    { return &v }
 func ptrStringAgent(v string) *string { return &v }
 
