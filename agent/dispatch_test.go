@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"strings"
@@ -25,11 +26,22 @@ func mustRegister(t *testing.T, r *ToolRegistry, tool Tool) {
 	}
 }
 
+// mustDispatch runs dispatch and fails the test on a non-nil error —
+// suitable for tests not exercising the approval-panic abort path.
+func mustDispatch(t *testing.T, r *ToolRegistry, ctx context.Context, calls []ToolCall) []toolResult {
+	t.Helper()
+	results, err := r.dispatch(ctx, calls, discardLogger())
+	if err != nil {
+		t.Fatalf("dispatch: %v", err)
+	}
+	return results
+}
+
 func TestDispatch_UnknownTool(t *testing.T) {
 	r := NewToolRegistry()
-	results := r.dispatch(context.Background(), []ToolCall{
+	results := mustDispatch(t, r, context.Background(), []ToolCall{
 		{ID: "call_1", Name: "missing"},
-	}, discardLogger())
+	})
 
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
@@ -51,9 +63,9 @@ func TestDispatch_Success(t *testing.T) {
 		},
 	})
 
-	results := r.dispatch(context.Background(), []ToolCall{
+	results := mustDispatch(t, r, context.Background(), []ToolCall{
 		{ID: "call_1", Name: "echo"},
-	}, discardLogger())
+	})
 
 	if results[0].IsError {
 		t.Fatalf("unexpected error result: %q", results[0].Content)
@@ -86,10 +98,11 @@ func TestDispatch_ParallelExecution(t *testing.T) {
 
 	done := make(chan []toolResult, 1)
 	go func() {
-		done <- r.dispatch(context.Background(), []ToolCall{
+		results, _ := r.dispatch(context.Background(), []ToolCall{
 			{ID: "1", Name: "a"},
 			{ID: "2", Name: "b"},
 		}, discardLogger())
+		done <- results
 	}()
 
 	// Wait for both goroutines to reach the barrier — proves parallelism.
@@ -123,11 +136,11 @@ func TestDispatch_SiblingIsolation(t *testing.T) {
 		},
 	})
 
-	results := r.dispatch(context.Background(), []ToolCall{
+	results := mustDispatch(t, r, context.Background(), []ToolCall{
 		{ID: "a", Name: "ok"},
 		{ID: "b", Name: "bad"},
 		{ID: "c", Name: "ok"},
-	}, discardLogger())
+	})
 
 	if results[0].IsError || results[0].Content != "success" {
 		t.Fatalf("result 0: %+v", results[0])
@@ -155,10 +168,10 @@ func TestDispatch_PanicRecovered(t *testing.T) {
 		},
 	})
 
-	results := r.dispatch(context.Background(), []ToolCall{
+	results := mustDispatch(t, r, context.Background(), []ToolCall{
 		{ID: "1", Name: "boom"},
 		{ID: "2", Name: "ok"},
-	}, discardLogger())
+	})
 
 	if !results[0].IsError {
 		t.Fatalf("panic result should be IsError: %+v", results[0])
@@ -186,7 +199,7 @@ func TestDispatch_ContextInherited(t *testing.T) {
 	})
 
 	ctx := context.WithValue(context.Background(), key, "hello")
-	_ = r.dispatch(ctx, []ToolCall{{ID: "1", Name: "peek"}}, discardLogger())
+	mustDispatch(t, r, ctx, []ToolCall{{ID: "1", Name: "peek"}})
 	if seen != "hello" {
 		t.Fatalf("expected canary 'hello', got %v", seen)
 	}
@@ -207,7 +220,7 @@ func TestDispatch_HITLApproved(t *testing.T) {
 		},
 	})
 
-	results := r.dispatch(context.Background(), []ToolCall{{ID: "1", Name: "sensitive"}}, discardLogger())
+	results := mustDispatch(t, r, context.Background(), []ToolCall{{ID: "1", Name: "sensitive"}})
 
 	if !executed {
 		t.Fatal("expected tool to execute after approval")
@@ -232,7 +245,7 @@ func TestDispatch_HITLDenied(t *testing.T) {
 		},
 	})
 
-	results := r.dispatch(context.Background(), []ToolCall{{ID: "1", Name: "sensitive"}}, discardLogger())
+	results := mustDispatch(t, r, context.Background(), []ToolCall{{ID: "1", Name: "sensitive"}})
 
 	if executed {
 		t.Fatal("denied tool must not execute")
@@ -242,6 +255,44 @@ func TestDispatch_HITLDenied(t *testing.T) {
 	}
 	if !strings.Contains(results[0].Content, "denied") {
 		t.Fatalf("expected denial message, got %q", results[0].Content)
+	}
+}
+
+func TestDispatch_ApprovalPanicAbortsBatch(t *testing.T) {
+	// S2.8: an approval-callback panic aborts the whole dispatch before
+	// any tool in the batch executes — including non-HITL siblings.
+	r := NewToolRegistry()
+	r.SetApprovalCallback(func(_ context.Context, _ ToolCall) (bool, error) {
+		panic("approval gate gone wild")
+	})
+	var executed bool
+	record := func(_ context.Context, _ json.RawMessage) (string, error) {
+		executed = true
+		return "ran", nil
+	}
+	mustRegister(t, r, Tool{Name: "sensitive", HITL: true, Execute: record})
+	mustRegister(t, r, Tool{Name: "plain", Execute: record})
+
+	results, err := r.dispatch(context.Background(), []ToolCall{
+		{ID: "1", Name: "sensitive"},
+		{ID: "2", Name: "plain"},
+	}, discardLogger())
+
+	if results != nil {
+		t.Fatalf("expected nil results on approval panic, got %+v", results)
+	}
+	var panicErr *ApprovalPanicError
+	if !errors.As(err, &panicErr) {
+		t.Fatalf("expected *ApprovalPanicError, got %T: %v", err, err)
+	}
+	if panicErr.ToolName != "sensitive" || panicErr.ToolID != "1" {
+		t.Errorf("panic error identifies tool %q/%q, want sensitive/1", panicErr.ToolName, panicErr.ToolID)
+	}
+	if got := fmt.Sprint(panicErr.Recovered); got != "approval gate gone wild" {
+		t.Errorf("recovered value = %q, want the panic value", got)
+	}
+	if executed {
+		t.Error("no tool may execute when the approval callback panics")
 	}
 }
 
@@ -273,12 +324,12 @@ func TestDispatch_MixedBatchOrdering(t *testing.T) {
 		},
 	})
 
-	results := r.dispatch(context.Background(), []ToolCall{
+	results := mustDispatch(t, r, context.Background(), []ToolCall{
 		{ID: "a", Name: "unknown"},
 		{ID: "b", Name: "plain"},
 		{ID: "c", Name: "approved_hitl"},
 		{ID: "d", Name: "denied_hitl"},
-	}, discardLogger())
+	})
 
 	if len(results) != 4 {
 		t.Fatalf("expected 4 results, got %d", len(results))

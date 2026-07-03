@@ -523,7 +523,12 @@ func (a *Agent) executeToolBatch(ctx context.Context, calls []ToolCall, turn int
 		for i, s := range survivors {
 			survivorCalls[i] = s.call
 		}
-		dispatchResults := a.registry.dispatch(ctx, survivorCalls, a.log)
+		dispatchResults, err := a.registry.dispatch(ctx, survivorCalls, a.log)
+		if err != nil {
+			// Approval-callback panic (S2.8): fatal to the run; the
+			// caller rolls the partial turn back via abortRun.
+			return nil, nil, err
+		}
 		for i, r := range dispatchResults {
 			results[survivors[i].idx] = r
 		}
