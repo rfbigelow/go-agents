@@ -53,11 +53,14 @@ func (r *ToolRegistry) invokeApproval(ctx context.Context, call ToolCall) (appro
 
 // dispatch resolves tool calls, runs HITL approvals sequentially, and then
 // executes approved + non-HITL tools in parallel. The only non-nil error
-// it returns is an *ApprovalPanicError, which aborts the run before any
-// tool in the batch executes (S2.8); every other failure mode (unknown
-// tool, denial, execution error, recovered tool panic) surfaces as an
-// IsError toolResult so the LLM can adapt. Results are returned in the
-// input order.
+// it returns is an *ApprovalPanicError (S2.8), from either of two sources:
+// this registry's own approval pass panicking — which aborts before any
+// tool in the batch executes — or a sub-agent tool surfacing a panic of
+// the shared parent gate, in which case siblings already executing
+// complete first and their results are discarded. Every other failure
+// mode (unknown tool, denial, execution error, recovered tool panic)
+// surfaces as an IsError toolResult so the LLM can adapt. Results are
+// returned in the input order.
 //
 // Per S2.5: errors are isolated per call, siblings continue; tools
 // inherit the enclosing ctx (no per-tool timeout); panics are recovered
@@ -121,10 +124,20 @@ func (r *ToolRegistry) dispatch(ctx context.Context, calls []ToolCall, log *slog
 	results := make([]toolResult, len(calls))
 	var wg sync.WaitGroup
 	var errCount int64
+	var fatalErr error
 	var errMu sync.Mutex
 	incErr := func() {
 		errMu.Lock()
 		errCount++
+		errMu.Unlock()
+	}
+	// recordFatal keeps the first shared-gate approval panic surfaced by a
+	// tool (S2.8); it aborts the whole dispatch after the batch drains.
+	recordFatal := func(err error) {
+		errMu.Lock()
+		if fatalErr == nil {
+			fatalErr = err
+		}
 		errMu.Unlock()
 	}
 
@@ -169,6 +182,13 @@ func (r *ToolRegistry) dispatch(ctx context.Context, calls []ToolCall, log *slog
 			}()
 			out, err := r.executeTool(ctx, s.tool, s.call, log)
 			if err != nil {
+				var panicErr *ApprovalPanicError
+				if errors.As(err, &panicErr) {
+					// A sub-agent sharing this run's approval gate saw it
+					// panic (S2.8): fatal here too, not an LLM-visible
+					// result.
+					recordFatal(err)
+				}
 				results[i] = toolResult{
 					ID:      s.call.ID,
 					Content: err.Error(),
@@ -181,6 +201,16 @@ func (r *ToolRegistry) dispatch(ctx context.Context, calls []ToolCall, log *slog
 		})
 	}
 	wg.Wait()
+
+	if fatalErr != nil {
+		var panicErr *ApprovalPanicError
+		errors.As(fatalErr, &panicErr)
+		log.ErrorContext(ctx, "approval callback panic",
+			logArgs(ctx, "tool_name", panicErr.ToolName, "tool_id", panicErr.ToolID, "panic", fmt.Sprint(panicErr.Recovered))...,
+		)
+		dispatchErr = fatalErr
+		return nil, dispatchErr
+	}
 
 	log.InfoContext(ctx, "dispatch completed",
 		logArgs(ctx, "tool_count", len(calls), "error_count", errCount)...,

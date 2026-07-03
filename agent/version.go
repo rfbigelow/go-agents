@@ -14,4 +14,4 @@ package agent
 // The single-line form of this declaration is load-bearing: the CI and
 // release workflows locate the value by matching `^const Version = ` and
 // assert the match is unique. Do not fold it into a const block.
-const Version = "v0.1.1"
+const Version = "v0.2.0"

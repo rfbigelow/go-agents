@@ -100,7 +100,8 @@ The parent's agent loop continues.
 **Verifies:** S2.11, S4.3 (sub-agent error, sub-agent panic)
 **Method:** Test with sub-agents that return errors and sub-agents that panic.
 **Pass condition:** Failures are converted to error tool results for the parent.
-The parent's agent loop continues.
+The parent's agent loop continues. Exception: a panic of the shared approval
+gate is fatal to the parent run (S6.39).
 
 ### S6.12: Sub-Agent Nesting Rejection
 
@@ -128,6 +129,23 @@ sub-agent. Mock API responses drive the sub-agent to call the HITL tool.
 **Pass condition:** The parent's approval callback is invoked for the
 sub-agent's HITL tool call and can identify it as a sub-agent call. Denial
 surfaces as an error tool result inside the sub-agent's loop.
+
+### S6.39: Sub-Agent Shared-Gate Approval Panic Propagation
+
+**Verifies:** S2.8, S2.11
+**Method:** Test a sub-agent with a HITL-flagged tool under two
+configurations, with mocked API responses driving the sub-agent to call the
+HITL tool. (a) Shared gate: no callback on the sub-agent definition, the
+parent's approval callback panics when invoked for the sub-agent's call.
+(b) Local gate: the sub-agent definition carries its own approval callback,
+which panics; the parent's callback is healthy.
+**Pass condition:** (a) The parent's `run` returns an error that matches the
+approval-panic error type; the parent's partial turn is rolled back
+(conversation preserved up to the last completed turn); the sub-agent's
+gated tool never executes. (b) The parent's run continues: the sub-agent
+tool yields an error tool result containing the panic description, the
+parent's loop proceeds to a final response, and the parent's conversation
+retains the full turn (per S6.11 failure isolation).
 
 ### S6.35: Sub-Agent Stream Isolation and Forwarding
 
@@ -530,10 +548,10 @@ log entries.
 | S2.5 | S6.2, S6.5, S6.6, S6.7, S6.18, S6.19, S6.20, S6.15, S6.23 |
 | S2.6 | S6.1, S6.15, S6.24 (round-trip rule) |
 | S2.7 | S6.8, S6.9 |
-| S2.8 | S6.18, S6.19, S6.20, S6.21, S6.22, S6.23, S6.28, S6.34 |
+| S2.8 | S6.18, S6.19, S6.20, S6.21, S6.22, S6.23, S6.28, S6.34, S6.39 |
 | S2.9 | S6.25 |
 | S2.10 | S6.27, S6.28, S6.29, S6.30, S6.31 |
-| S2.11 | S6.10, S6.11, S6.12, S6.33, S6.34, S6.35 |
+| S2.11 | S6.10, S6.11, S6.12, S6.33, S6.34, S6.35, S6.39 |
 | S2.12 | S6.16, S6.14 |
 | S2.13 | S6.17 |
 | S2.15 | S6.24 |
