@@ -77,6 +77,11 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		}
 	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Fprintf(os.Stderr, "reading input: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 // chatModel returns the Anthropic model to use, honoring the CHAT_MODEL
@@ -85,22 +90,25 @@ func chatModel() anthropic.Model {
 	if m := os.Getenv("CHAT_MODEL"); m != "" {
 		return anthropic.Model(m)
 	}
-	return anthropic.ModelClaudeSonnet4_6
+	return anthropic.ModelClaudeSonnet5
 }
 
 // thinkingConfigFor returns the Extended Thinking configuration appropriate
 // for the given model, or nil for models that do not support thinking
 // (e.g., Haiku, Claude 3.x). Adaptive-capable models use adaptive (the only
-// mode supported on Opus 4.7); older Claude 4.x models use enabled with a
-// budget. Unknown models degrade to nil so the example does not surface
+// mode supported on Opus 4.7 and later); older Claude 4.x models use enabled
+// with a budget. Unknown models degrade to nil so the example does not surface
 // a pass-through API error to readers running it for the first time.
 // Display is set to "summarized" so the chat UI can render thinking text.
 func thinkingConfigFor(model anthropic.Model) *agent.ThinkingConfig {
 	display := "summarized"
 
 	switch model {
-	case anthropic.ModelClaudeOpus4_7,
+	case anthropic.ModelClaudeFable5,
+		anthropic.ModelClaudeOpus4_8,
+		anthropic.ModelClaudeOpus4_7,
 		anthropic.ModelClaudeOpus4_6,
+		anthropic.ModelClaudeSonnet5,
 		anthropic.ModelClaudeSonnet4_6:
 		return &agent.ThinkingConfig{
 			Type:    "adaptive",
@@ -110,13 +118,7 @@ func thinkingConfigFor(model anthropic.Model) *agent.ThinkingConfig {
 	case anthropic.ModelClaudeOpus4_5,
 		anthropic.ModelClaudeOpus4_5_20251101,
 		anthropic.ModelClaudeSonnet4_5,
-		anthropic.ModelClaudeSonnet4_5_20250929,
-		anthropic.ModelClaudeOpus4_1,
-		anthropic.ModelClaudeOpus4_1_20250805,
-		anthropic.ModelClaudeOpus4_0,
-		anthropic.ModelClaudeOpus4_20250514,
-		anthropic.ModelClaudeSonnet4_0,
-		anthropic.ModelClaudeSonnet4_20250514:
+		anthropic.ModelClaudeSonnet4_5_20250929:
 		budget := int64(2048)
 		return &agent.ThinkingConfig{
 			Type:         "enabled",
