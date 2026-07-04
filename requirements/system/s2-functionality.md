@@ -837,11 +837,11 @@ the history violates.
 - Construction validates the history against five invariants:
   1. The history is empty, or ends with an assistant message (so the next
      `run` can append a user message without breaking alternation).
-  2. User and assistant messages alternate.
+  2. User and assistant messages alternate, starting with a user message.
   3. Every assistant `tool_use` block has a matching `tool_result` block (by
      tool-use ID) in the immediately following user message.
-  4. No `tool_result` block appears without a preceding `tool_use` for the
-     same ID.
+  4. No `tool_result` block appears without a matching `tool_use` for the
+     same ID in the immediately preceding assistant message.
   5. If the history ends with an assistant message, that message contains
      no `tool_use` blocks. (A trailing assistant message with unresolved
      `tool_use` blocks is not resumable: the next operation must be a user

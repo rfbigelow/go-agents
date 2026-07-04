@@ -97,9 +97,9 @@ go run ./examples/sub-agent/  # parent agent delegating to sub-agents
 
 M1 (Basic Conversation), M2 (Tool Use), M3 (HITL Example), M4
 (Extended Thinking), M5 (Deterministic Logic), M7 (Sub-Agent
-Composition), and M8 (Prompt Caching) are implemented:
-streaming completions, conversation state management, tool
-registration, parallel tool dispatch with
+Composition), M8 (Prompt Caching), and M9 (Conversation Resumption)
+are implemented: streaming completions, conversation state management,
+tool registration, parallel tool dispatch with
 a working human approval gate (see `examples/hitl/`), Extended Thinking
 with adaptive and enabled modes plus `output_config.effort` (see
 `examples/chat/`), typed loop hooks at `PreLLMCall`, `PreToolUse`, and
@@ -108,14 +108,15 @@ loop, sub-agent composition where a tool runs a separate agent loop —
 one-shot or multi-turn, with optional attributed stream forwarding and
 HITL propagation (see `examples/sub-agent/`), prompt caching with
 cache-control breakpoints on stable prefixes (enabled by default,
-opt-out via Config), and observability (OTEL tracing + slog logging)
-across LLM calls, tool-dispatch batches, individual tool executions, and
-sub-agent invocations.
+opt-out via Config), conversation resumption via `NewAgentWithHistory` —
+construct an agent from persisted message history, validated against
+the S2.15 resumption invariants — and observability (OTEL tracing +
+slog logging) across LLM calls, tool-dispatch batches, individual tool
+executions, and sub-agent invocations.
 
 Planned milestones: Example Application (M6) — the dog-food application
-remains in progress; Conversation Resumption (M9) — construct an agent
-from persisted message history (S2.15); Context Compaction (M10) —
-opt-in conversation compaction (S2.18–S2.21).
+remains in progress; Context Compaction (M10) — opt-in conversation
+compaction (S2.18–S2.21).
 
 See [requirements/](requirements/README.md) for the full PEGS requirements.
 
