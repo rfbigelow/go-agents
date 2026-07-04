@@ -281,11 +281,12 @@ round-trip through the read interface, and rejection of malformed histories.
   yields a constructor error identifying the violated rule, and no Agent
   is returned:
   (1) a history ending with a user message;
-  (2) a history with two consecutive same-role messages;
+  (2) a history beginning with an assistant message, and a history with two
+      consecutive same-role messages;
   (3) a history containing an assistant `tool_use` block whose ID has no
       matching `tool_result` in the immediately following user message;
-  (4) a history containing a `tool_result` block whose ID has no preceding
-      `tool_use`;
+  (4) a history containing a `tool_result` block whose ID has no matching
+      `tool_use` in the immediately preceding assistant message;
   (5) a history ending with an assistant message that contains one or
       more `tool_use` blocks.
 

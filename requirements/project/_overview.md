@@ -18,11 +18,11 @@ iterative with no fixed timeline (P3).
 Milestones ordered by dependency: Basic Conversation (M1) → Tool Use (M2)
 → HITL (M3), Extended Thinking (M4), Deterministic Logic (M5), Sub-Agent
 Composition (M7), and Prompt Caching (M8) → Example Application (M6, started
-at M2 and still in progress). M1–M5, M7, and M8 are complete; M6 remains the
-open milestone. Long-running-agent support is planned next: Conversation
-Resumption (M9, closing the specified-but-unimplemented S2.15 gap) and Context
-Compaction (M10). No hard deadlines — pace is driven by available time and
-learning goals. See P3 for details.
+at M2 and still in progress) → Conversation Resumption (M9). M1–M5, M7, M8,
+and M9 are complete; M6 remains the open milestone. Long-running-agent support
+continues with Context Compaction (M10), whose archival path builds on the M9
+resumption round-trip. No hard deadlines — pace is driven by available time
+and learning goals. See P3 for details.
 
 ## Key Risks
 
