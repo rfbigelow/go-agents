@@ -257,7 +257,7 @@ func TestCompaction_ManualCommitsTransientStrategy(t *testing.T) {
 func TestCompaction_ProactiveThreshold(t *testing.T) {
 	mock := &mockCompleter{
 		responses: []scriptedResponse{
-			{Text: "one", InputTokens: 50},                          // below threshold
+			{Text: "one", InputTokens: 50},                            // below threshold
 			{Text: "two", InputTokens: 120, CacheReadInputTokens: 30}, // crosses it
 			{Text: "three"},
 		},
@@ -470,4 +470,3 @@ func TestCompaction_StrategyUsageCounted(t *testing.T) {
 		t.Fatalf("LastRun = %+v, want %+v (manual Compact is not a run)", usage.LastRun, wantLast)
 	}
 }
-
