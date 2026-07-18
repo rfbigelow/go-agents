@@ -24,6 +24,8 @@ type scriptedResponse struct {
 	ToolCalls                []scriptedToolCall
 	Thinking                 string
 	Signature                string
+	InputTokens              int64 // 0 means the default of 10
+	OutputTokens             int64 // 0 means the default of 5
 	CacheCreationInputTokens int64
 	CacheReadInputTokens     int64
 }
@@ -74,13 +76,21 @@ func (m *mockCompleter) Complete(_ context.Context, req CompletionRequest) (*Eve
 }
 
 func (m *mockCompleter) buildStream(r scriptedResponse) *EventStream {
+	inputTokens := r.InputTokens
+	if inputTokens == 0 {
+		inputTokens = 10
+	}
+	outputTokens := r.OutputTokens
+	if outputTokens == 0 {
+		outputTokens = 5
+	}
 	msg := anthropic.Message{
 		ID:    "msg_test",
 		Role:  "assistant",
 		Model: "claude-sonnet-4-5",
 		Usage: anthropic.Usage{
-			InputTokens:              10,
-			OutputTokens:             5,
+			InputTokens:              inputTokens,
+			OutputTokens:             outputTokens,
 			CacheCreationInputTokens: r.CacheCreationInputTokens,
 			CacheReadInputTokens:     r.CacheReadInputTokens,
 		},

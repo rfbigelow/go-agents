@@ -26,7 +26,16 @@ type Agent struct {
 	config       Config
 	conversation ConversationState
 	hooks        HookBundle
-	log          *slog.Logger
+	compaction   CompactionConfig
+	usage        TokenUsage
+	// lastCallInputTokens is the input-side token count (input + cache
+	// creation + cache read) of the most recent main-loop LLM call. It
+	// approximates the current conversation size for the proactive
+	// compaction trigger (S2.19) and deliberately excludes a summarizing
+	// strategy's own call, whose input is the prefix being summarized,
+	// not the conversation.
+	lastCallInputTokens int64
+	log                 *slog.Logger
 }
 
 // NewAgent creates an Agent with the given Completer, ToolRegistry, and Config.
@@ -55,6 +64,25 @@ func (a *Agent) SetHooks(b HookBundle) {
 // Hooks returns the Agent's current hook bundle (S2.10).
 func (a *Agent) Hooks() HookBundle {
 	return a.hooks
+}
+
+// Usage returns the conversation's token usage (S2.20): cumulative
+// totals plus the most recent Run's usage. Reporting is read-only and
+// imposes no behavior by itself.
+func (a *Agent) Usage() TokenUsage {
+	return a.usage
+}
+
+// addCallUsage accumulates one API response's usage into the Agent's
+// cumulative totals and, when lastRun is true, into the last-run
+// component (S2.20). Summarizing-compaction calls made outside a Run
+// (manual Compact, S2.19) count toward Cumulative only, so LastRun
+// keeps its meaning of "usage attributable to the most recent run".
+func (a *Agent) addCallUsage(u anthropic.Usage, lastRun bool) {
+	a.usage.Cumulative.add(u)
+	if lastRun {
+		a.usage.LastRun.add(u)
+	}
 }
 
 // EventHandler is a callback invoked for each streaming event during a Run.
@@ -114,6 +142,10 @@ func (a *Agent) Run(ctx context.Context, message string, handler EventHandler) e
 	startLen := a.conversation.Len()
 	a.conversation.Append(anthropic.NewUserMessage(anthropic.NewTextBlock(message)))
 
+	// Each Run replaces the last-run usage component (S2.20). Cumulative
+	// totals persist across runs and are never reset.
+	a.usage.LastRun = UsageTotals{}
+
 	maxIter := a.config.MaxIterations
 	if maxIter <= 0 {
 		maxIter = defaultMaxIterations
@@ -126,7 +158,31 @@ func (a *Agent) Run(ctx context.Context, message string, handler EventHandler) e
 			return fmt.Errorf("agent run: %w", err)
 		}
 
-		req := a.buildRequest()
+		// Proactive compaction trigger (S2.19): evaluated before each
+		// LLM call, firing once the most recent call's input-side
+		// tokens have crossed the configured threshold. Only the
+		// pre-run committed prefix (startLen) is ever compacted, so
+		// the in-flight run's appends — and the rollback anchor —
+		// stay intact.
+		reqMessages := a.conversation.Messages()
+		if a.compaction.enabled() && startLen > 0 {
+			if th := a.compaction.proactiveThreshold(); th > 0 && a.lastCallInputTokens >= th {
+				var compErr error
+				reqMessages, _, compErr = a.applyStrategyForRequest(ctx, &startLen)
+				if compErr != nil {
+					if turn == 0 {
+						a.conversation.Rollback(1)
+					}
+					runErr = compErr
+					a.log.ErrorContext(ctx, "run failed",
+						logArgs(ctx, "turn", turn, "error", compErr.Error())...,
+					)
+					return fmt.Errorf("agent run: %w", compErr)
+				}
+			}
+		}
+
+		req := a.buildRequestFrom(reqMessages)
 
 		// PreLLMCall gate (S2.10) — fires BEFORE the agent.llm_call span so
 		// a Substitute decision doesn't create a misleading span for a call
@@ -139,6 +195,7 @@ func (a *Agent) Run(ctx context.Context, message string, handler EventHandler) e
 
 		var response anthropic.Message
 		var err error
+		apiCall := true
 		switch d := preDecision.(type) {
 		case PreLLMCallContinue:
 			response, err = a.complete(ctx, req, handler, turn)
@@ -148,6 +205,7 @@ func (a *Agent) Run(ctx context.Context, message string, handler EventHandler) e
 		case PreLLMCallSubstitute:
 			a.logHookAction(ctx, hookPointPreLLMCall, "substitute", "turn", turn)
 			response = d.Message
+			apiCall = false
 		case PreLLMCallAbort:
 			abortErr := &HookAbortError{Hook: hookPointPreLLMCall, Reason: d.Reason}
 			runErr = abortErr
@@ -160,6 +218,25 @@ func (a *Agent) Run(ctx context.Context, message string, handler EventHandler) e
 			)
 			response, err = a.complete(ctx, req, handler, turn)
 		}
+		// Reactive compaction trigger (S2.19): when the call failed
+		// because the request exceeded the model's context window and
+		// a strategy is configured, compact and retry the call once.
+		// If the retry still overflows — or compaction itself fails —
+		// the original error surfaces below (S4.1).
+		if err != nil && isContextOverflow(err) && a.compaction.enabled() && startLen > 0 {
+			a.log.InfoContext(ctx, "context overflow; applying reactive compaction",
+				logArgs(ctx, "turn", turn)...,
+			)
+			retryMessages, applied, compErr := a.applyStrategyForRequest(ctx, &startLen)
+			switch {
+			case compErr != nil:
+				a.log.ErrorContext(ctx, "reactive compaction failed",
+					logArgs(ctx, "turn", turn, "error", compErr.Error())...,
+				)
+			case applied:
+				response, err = a.complete(ctx, a.buildRequestFrom(retryMessages), handler, turn)
+			}
+		}
 		if err != nil {
 			if turn == 0 {
 				a.conversation.Rollback(1)
@@ -169,6 +246,14 @@ func (a *Agent) Run(ctx context.Context, message string, handler EventHandler) e
 				logArgs(ctx, "turn", turn, "error", err.Error())...,
 			)
 			return fmt.Errorf("agent run: %w", err)
+		}
+		if apiCall {
+			// Accumulate this call's reported usage (S2.20). A hook-
+			// substituted message never reached the API and reports none.
+			a.addCallUsage(response.Usage, true)
+			a.lastCallInputTokens = response.Usage.InputTokens +
+				response.Usage.CacheCreationInputTokens +
+				response.Usage.CacheReadInputTokens
 		}
 
 		a.conversation.Append(response.ToParam())
@@ -231,11 +316,12 @@ func extractToolCalls(msg anthropic.Message) []ToolCall {
 	return calls
 }
 
-// buildRequest constructs a CompletionRequest from the Agent's config
-// and current conversation state.
-func (a *Agent) buildRequest() CompletionRequest {
+// buildRequestFrom constructs a CompletionRequest from the Agent's
+// config and the given messages — usually the committed conversation,
+// or a transiently-compacted view of it (S2.18).
+func (a *Agent) buildRequestFrom(messages []anthropic.MessageParam) CompletionRequest {
 	req := CompletionRequest{
-		Messages:  a.conversation.Messages(),
+		Messages:  messages,
 		Model:     a.config.Model,
 		MaxTokens: a.config.MaxTokens,
 	}

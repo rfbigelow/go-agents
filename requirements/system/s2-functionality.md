@@ -962,9 +962,12 @@ threshold); token usage (S2.20); the API's context-window overflow error.
 - **Proactive (token threshold).** When the consumer configures a token
   threshold, the library applies the strategy before an LLM call once the
   conversation's token usage (S2.20) crosses that threshold, keeping the request
-  within the context window proactively. The threshold may be expressed relative
-  to the model's context window or as an absolute token count; with no threshold
-  set, no proactive compaction occurs.
+  within the context window proactively. The conversation-size signal is the
+  input-side token count (input plus cache creation plus cache read) of the most
+  recent LLM call as reported through S2.20 — the cost of sending the
+  conversation last time — excluding a summarizing strategy's own call. The
+  threshold may be expressed relative to the model's context window or as an
+  absolute token count; with no threshold set, no proactive compaction occurs.
 - **Reactive (on overflow).** When an LLM call fails because the request exceeds
   the model's context window (the overflow case of S4.1) and a strategy is
   configured, the library applies the strategy and retries the call once. If the
@@ -999,6 +1002,10 @@ the `usage` query on the Agent.
   caching (S2.17) and of any compaction already applied (S2.18).
 - Cumulative usage includes every Completer call the Agent makes on the
   conversation's behalf, including a summarizing strategy's own call (S2.21).
+  A summarizing call triggered during a `run` (S2.19) also counts toward that
+  run's usage; one triggered by manual `compact` between runs counts toward
+  cumulative usage only — a manual compact is not a run, so the last-run
+  component keeps its meaning.
 - Reporting is read-only and imposes no behavior by itself; the proactive
   trigger (S2.19) is what consumes a configured threshold.
 
