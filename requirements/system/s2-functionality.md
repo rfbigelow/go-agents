@@ -118,7 +118,8 @@ so compaction never runs and the full history is retained (the library's default
 behavior). `compact` applies the configured strategy to the committed history
 immediately and returns the updated Agent; it is the explicit (manual) trigger
 of S2.19 and is a no-op when no strategy is configured. `usage` returns the
-conversation's token usage (S2.20).
+conversation's token usage — a TOKEN_USAGE record carrying the cumulative
+totals and the most recent run's usage (S2.20).
 
 **Configuration (CONFIG):**
 
@@ -151,7 +152,10 @@ compact(a)                              | compacted history (S2.18), replaced pr
 produced during the agent loop — assistant responses, tool-use
 requests, tool results — in protocol-correct order. If the loop involves
 multiple turns (tool use), all intermediate messages are included. The `usage`
-query reports cumulative token usage and is specified in S2.20.
+query returns a TOKEN_USAGE record carrying the conversation's cumulative
+totals and the most recent run's usage; `+` in the usage column above denotes
+adding to the cumulative totals and recording the increment as the last-run
+component (S2.20).
 
 ### Progressive Capabilities
 
@@ -951,7 +955,10 @@ threshold); token usage (S2.20); the API's context-window overflow error.
 **Outputs:** A compaction applied (or not) per the rules below.
 **Rules:**
 - **Manual.** The consumer can invoke compaction explicitly between runs via
-  `compact` on the Agent ADT, independent of any automatic trigger.
+  `compact` on the Agent ADT, independent of any automatic trigger. An explicit
+  `compact` is always a committed compaction (S2.18): it mutates the committed
+  history and delivers the replaced prefix to the archival callback, even when
+  the configured strategy could otherwise be applied transiently.
 - **Proactive (token threshold).** When the consumer configures a token
   threshold, the library applies the strategy before an LLM call once the
   conversation's token usage (S2.20) crosses that threshold, keeping the request
@@ -984,7 +991,10 @@ the `usage` query on the Agent.
 **Rules:**
 - After a `run`, the consumer can read the token usage attributable to that run
   and the cumulative usage for the conversation, broken down into input, output,
-  and cache (creation/read) tokens.
+  and cache (creation/read) tokens. Both are carried by the single `usage`
+  query: TOKEN_USAGE is a record holding the conversation's cumulative totals
+  and the most recent run's usage. Each `run` adds its reported usage to the
+  cumulative totals and replaces the last-run component.
 - Reported usage reflects what the API returned, including the effect of prompt
   caching (S2.17) and of any compaction already applied (S2.18).
 - Cumulative usage includes every Completer call the Agent makes on the
