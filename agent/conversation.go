@@ -26,6 +26,13 @@ func (cs *ConversationState) Len() int {
 	return len(cs.messages)
 }
 
+// Replace substitutes the entire message history. Used by committed
+// compaction (S2.18); callers are responsible for validating protocol
+// invariants before replacing.
+func (cs *ConversationState) Replace(msgs []anthropic.MessageParam) {
+	cs.messages = msgs
+}
+
 // Rollback removes the last n messages from the conversation.
 // If n exceeds the number of messages, all messages are removed.
 func (cs *ConversationState) Rollback(n int) {

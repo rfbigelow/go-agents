@@ -26,6 +26,7 @@ type Agent struct {
 	config       Config
 	conversation ConversationState
 	hooks        HookBundle
+	compaction   CompactionConfig
 	usage        TokenUsage
 	// lastCallInputTokens is the input-side token count (input + cache
 	// creation + cache read) of the most recent main-loop LLM call. It
@@ -157,7 +158,31 @@ func (a *Agent) Run(ctx context.Context, message string, handler EventHandler) e
 			return fmt.Errorf("agent run: %w", err)
 		}
 
-		req := a.buildRequest()
+		// Proactive compaction trigger (S2.19): evaluated before each
+		// LLM call, firing once the most recent call's input-side
+		// tokens have crossed the configured threshold. Only the
+		// pre-run committed prefix (startLen) is ever compacted, so
+		// the in-flight run's appends — and the rollback anchor —
+		// stay intact.
+		reqMessages := a.conversation.Messages()
+		if a.compaction.enabled() && startLen > 0 {
+			if th := a.compaction.proactiveThreshold(); th > 0 && a.lastCallInputTokens >= th {
+				var compErr error
+				reqMessages, _, compErr = a.applyStrategyForRequest(ctx, &startLen)
+				if compErr != nil {
+					if turn == 0 {
+						a.conversation.Rollback(1)
+					}
+					runErr = compErr
+					a.log.ErrorContext(ctx, "run failed",
+						logArgs(ctx, "turn", turn, "error", compErr.Error())...,
+					)
+					return fmt.Errorf("agent run: %w", compErr)
+				}
+			}
+		}
+
+		req := a.buildRequestFrom(reqMessages)
 
 		// PreLLMCall gate (S2.10) — fires BEFORE the agent.llm_call span so
 		// a Substitute decision doesn't create a misleading span for a call
@@ -192,6 +217,25 @@ func (a *Agent) Run(ctx context.Context, message string, handler EventHandler) e
 				logArgs(ctx, "decision_type", fmt.Sprintf("%T", preDecision), "turn", turn)...,
 			)
 			response, err = a.complete(ctx, req, handler, turn)
+		}
+		// Reactive compaction trigger (S2.19): when the call failed
+		// because the request exceeded the model's context window and
+		// a strategy is configured, compact and retry the call once.
+		// If the retry still overflows — or compaction itself fails —
+		// the original error surfaces below (S4.1).
+		if err != nil && isContextOverflow(err) && a.compaction.enabled() && startLen > 0 {
+			a.log.InfoContext(ctx, "context overflow; applying reactive compaction",
+				logArgs(ctx, "turn", turn)...,
+			)
+			retryMessages, applied, compErr := a.applyStrategyForRequest(ctx, &startLen)
+			switch {
+			case compErr != nil:
+				a.log.ErrorContext(ctx, "reactive compaction failed",
+					logArgs(ctx, "turn", turn, "error", compErr.Error())...,
+				)
+			case applied:
+				response, err = a.complete(ctx, a.buildRequestFrom(retryMessages), handler, turn)
+			}
 		}
 		if err != nil {
 			if turn == 0 {
@@ -272,11 +316,12 @@ func extractToolCalls(msg anthropic.Message) []ToolCall {
 	return calls
 }
 
-// buildRequest constructs a CompletionRequest from the Agent's config
-// and current conversation state.
-func (a *Agent) buildRequest() CompletionRequest {
+// buildRequestFrom constructs a CompletionRequest from the Agent's
+// config and the given messages — usually the committed conversation,
+// or a transiently-compacted view of it (S2.18).
+func (a *Agent) buildRequestFrom(messages []anthropic.MessageParam) CompletionRequest {
 	req := CompletionRequest{
-		Messages:  a.conversation.Messages(),
+		Messages:  messages,
 		Model:     a.config.Model,
 		MaxTokens: a.config.MaxTokens,
 	}
