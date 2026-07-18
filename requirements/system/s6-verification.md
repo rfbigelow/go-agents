@@ -324,8 +324,10 @@ overflow error.
   compacted history. If it still overflows, or if no strategy is configured, the
   error is returned to the consumer and the offending message is not appended
   (S4.1).
-- Manual: `compact` applies the configured strategy immediately and is a no-op
-  when none is configured.
+- Manual: `compact` applies the configured strategy immediately as a committed
+  compaction — the committed history is mutated and the replaced prefix is
+  delivered to the archival callback even for a strategy that may run
+  transiently (S2.18) — and is a no-op when none is configured.
 
 ### S6.38: Token Usage Reporting
 
