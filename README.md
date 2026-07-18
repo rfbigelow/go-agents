@@ -97,7 +97,8 @@ go run ./examples/sub-agent/  # parent agent delegating to sub-agents
 
 M1 (Basic Conversation), M2 (Tool Use), M3 (HITL Example), M4
 (Extended Thinking), M5 (Deterministic Logic), M7 (Sub-Agent
-Composition), M8 (Prompt Caching), and M9 (Conversation Resumption)
+Composition), M8 (Prompt Caching), M9 (Conversation Resumption), and
+M10 (Context Compaction)
 are implemented: streaming completions, conversation state management,
 tool registration, parallel tool dispatch with
 a working human approval gate (see `examples/hitl/`), Extended Thinking
@@ -110,13 +111,17 @@ HITL propagation (see `examples/sub-agent/`), prompt caching with
 cache-control breakpoints on stable prefixes (enabled by default,
 opt-out via Config), conversation resumption via `NewAgentWithHistory` —
 construct an agent from persisted message history, validated against
-the S2.15 resumption invariants — and observability (OTEL tracing +
+the S2.15 resumption invariants, opt-in conversation compaction — a
+`CompactionStrategy` extension point with library-provided
+hybrid-summarization and sliding-window strategies, manual, proactive
+(token-threshold), and reactive (on context overflow) triggers, token
+usage reporting via `Agent.Usage`, and archival of the replaced prefix
+for lossless resume — and observability (OTEL tracing +
 slog logging) across LLM calls, tool-dispatch batches, individual tool
 executions, and sub-agent invocations.
 
 Planned milestones: Example Application (M6) — the dog-food application
-remains in progress; Context Compaction (M10) — opt-in conversation
-compaction (S2.18–S2.21).
+remains in progress.
 
 See [requirements/](requirements/README.md) for the full PEGS requirements.
 
