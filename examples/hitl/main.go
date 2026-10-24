@@ -49,7 +49,7 @@ func main() {
 
 	a := agent.NewAgent(completer, registry, agent.Config{
 		System:    systemPrompt,
-		Model:     anthropic.ModelClaudeSonnet4_5,
+		Model:     anthropic.ModelClaudeSonnet5_5,
 		MaxTokens: 1024,
 		Logger:    logger,
 	})

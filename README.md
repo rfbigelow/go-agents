@@ -59,7 +59,7 @@ func main() {
 
 	a := agent.NewAgent(completer, registry, agent.Config{
 		System:    "You are a helpful assistant.",
-		Model:     anthropic.ModelClaudeSonnet4_5,
+		Model:     anthropic.ModelClaudeSonnet5_5,
 		MaxTokens: 1024,
 	})
 
