@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/v2"
 )
 
 // testStrategy is a scriptable CompactionStrategy for engine and

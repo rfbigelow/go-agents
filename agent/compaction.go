@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/v2"
 	"go.opentelemetry.io/otel/attribute"
 )
 

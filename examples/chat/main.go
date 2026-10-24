@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/v2"
 	"github.com/rfbigelow/go-agents/agent"
 )
 
@@ -90,7 +90,7 @@ func chatModel() anthropic.Model {
 	if m := os.Getenv("CHAT_MODEL"); m != "" {
 		return anthropic.Model(m)
 	}
-	return anthropic.ModelClaudeSonnet5
+	return anthropic.ModelClaudeSonnet5_5
 }
 
 // thinkingConfigFor returns the Extended Thinking configuration appropriate
@@ -104,10 +104,14 @@ func thinkingConfigFor(model anthropic.Model) *agent.ThinkingConfig {
 	display := "summarized"
 
 	switch model {
-	case anthropic.ModelClaudeFable5,
+	case anthropic.ModelClaudeFable5_1,
+		anthropic.ModelClaudeFable5,
+		anthropic.ModelClaudeOpus5_5,
+		anthropic.ModelClaudeOpus5,
 		anthropic.ModelClaudeOpus4_8,
 		anthropic.ModelClaudeOpus4_7,
 		anthropic.ModelClaudeOpus4_6,
+		anthropic.ModelClaudeSonnet5_5,
 		anthropic.ModelClaudeSonnet5,
 		anthropic.ModelClaudeSonnet4_6:
 		return &agent.ThinkingConfig{

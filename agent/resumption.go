@@ -3,7 +3,7 @@ package agent
 import (
 	"fmt"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/v2"
 )
 
 // HistoryValidationError is returned by NewAgentWithHistory when the
@@ -71,28 +71,29 @@ func validateHistory(history []anthropic.MessageParam) error {
 	// Rules 1 and 2: user/assistant alternation from a user start, ending
 	// with an assistant message.
 	for i, msg := range history {
-		switch msg.Role {
-		case anthropic.MessageParamRoleUser, anthropic.MessageParamRoleAssistant:
+		role := messageRole(msg)
+		switch role {
+		case roleUser, roleAssistant:
 		default:
 			return &HistoryValidationError{
 				Rule: 2, MessageIndex: i,
-				Detail: fmt.Sprintf("role %q is neither user nor assistant", msg.Role),
+				Detail: fmt.Sprintf("role %q is neither user nor assistant", role),
 			}
 		}
-		if i == 0 && msg.Role != anthropic.MessageParamRoleUser {
+		if i == 0 && role != roleUser {
 			return &HistoryValidationError{
 				Rule: 2, MessageIndex: i,
 				Detail: "history must start with a user message",
 			}
 		}
-		if i > 0 && msg.Role == history[i-1].Role {
+		if i > 0 && role == messageRole(history[i-1]) {
 			return &HistoryValidationError{
 				Rule: 2, MessageIndex: i,
-				Detail: fmt.Sprintf("consecutive %s messages break alternation", msg.Role),
+				Detail: fmt.Sprintf("consecutive %s messages break alternation", role),
 			}
 		}
 	}
-	if last := history[len(history)-1]; last.Role != anthropic.MessageParamRoleAssistant {
+	if last := history[len(history)-1]; messageRole(last) != roleAssistant {
 		return &HistoryValidationError{
 			Rule: 1, MessageIndex: len(history) - 1,
 			Detail: "history must end with an assistant message",
@@ -103,7 +104,7 @@ func validateHistory(history []anthropic.MessageParam) error {
 	// messages. Alternation is already established, so the message after
 	// an assistant message is a user message and vice versa.
 	for i, msg := range history {
-		if msg.Role == anthropic.MessageParamRoleAssistant {
+		if messageRole(msg) == roleAssistant {
 			uses := toolUseIDs(msg)
 			if i == len(history)-1 {
 				if len(uses) > 0 {
@@ -129,7 +130,7 @@ func validateHistory(history []anthropic.MessageParam) error {
 		if i > 0 {
 			prevUses = toolUseIDSet(history[i-1])
 		}
-		for _, block := range msg.Content {
+		for _, block := range messageContent(msg) {
 			if block.OfToolResult == nil {
 				continue
 			}
@@ -147,7 +148,7 @@ func validateHistory(history []anthropic.MessageParam) error {
 // toolUseIDs returns the IDs of all tool_use blocks in msg, in order.
 func toolUseIDs(msg anthropic.MessageParam) []string {
 	var ids []string
-	for _, block := range msg.Content {
+	for _, block := range messageContent(msg) {
 		if block.OfToolUse != nil {
 			ids = append(ids, block.OfToolUse.ID)
 		}
@@ -167,7 +168,7 @@ func toolUseIDSet(msg anthropic.MessageParam) map[string]bool {
 // in msg.
 func toolResultIDSet(msg anthropic.MessageParam) map[string]bool {
 	set := make(map[string]bool)
-	for _, block := range msg.Content {
+	for _, block := range messageContent(msg) {
 		if block.OfToolResult != nil {
 			set[block.OfToolResult.ToolUseID] = true
 		}

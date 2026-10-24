@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/v2"
 )
 
 // toolTurnHistory seeds a committed history of three fresh turns where
@@ -159,10 +159,10 @@ func TestHybridSummarization_SummaryAndWindow(t *testing.T) {
 		t.Fatalf("expected a single summary message, got %d", len(res.Replacement))
 	}
 	summary := res.Replacement[0]
-	if summary.Role != anthropic.MessageParamRoleUser {
-		t.Fatalf("summary role = %s, want user", summary.Role)
+	if messageRole(summary) != roleUser {
+		t.Fatalf("summary role = %s, want user", messageRole(summary))
 	}
-	if got := summary.Content[0].OfText.Text; !strings.Contains(got, "the user asked about times and tools") {
+	if got := messageContent(summary)[0].OfText.Text; !strings.Contains(got, "the user asked about times and tools") {
 		t.Fatalf("summary text missing completion: %q", got)
 	}
 
@@ -180,7 +180,7 @@ func TestHybridSummarization_SummaryAndWindow(t *testing.T) {
 	if len(sreq.Messages) != 1 {
 		t.Fatalf("summary request carried %d messages, want 1", len(sreq.Messages))
 	}
-	transcript := sreq.Messages[0].Content[0].OfText.Text
+	transcript := messageContent(sreq.Messages[0])[0].OfText.Text
 	for _, want := range []string{"u1", "get_time", "13:37", "a1 final", "u2"} {
 		if !strings.Contains(transcript, want) {
 			t.Fatalf("transcript missing %q:\n%s", want, transcript)

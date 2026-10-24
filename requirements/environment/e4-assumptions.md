@@ -29,3 +29,7 @@ throughout its API. Frequent breaking changes in the SDK would require
 frequent library updates.
 **If wrong:** May need to introduce an anti-corruption layer or pin to
 specific SDK versions.
+**Observed:** The SDK's move to v2 (API version `2026-10-21`) changed
+the shape of `MessageParam` and removed the sampling parameters. The
+library adopted v2 and dropped its temperature setting accordingly; see
+`changes/2026-10-24-sdk-v2-remove-temperature.md`.

@@ -28,7 +28,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/v2"
 	"github.com/rfbigelow/go-agents/agent"
 )
 
@@ -61,7 +61,7 @@ func main() {
 		System: "You are an orchestrator. Delegate math to the math_helper " +
 			"sub-agent, note-taking to the notes_keeper sub-agent, and any " +
 			"destructive file operation to the secure_agent sub-agent.",
-		Model:     anthropic.ModelClaudeSonnet4_5,
+		Model:     anthropic.ModelClaudeSonnet5_5,
 		MaxTokens: 1024,
 		Logger:    logger,
 	})
@@ -173,7 +173,7 @@ func registerSubAgents(completer agent.Completer, parent *agent.ToolRegistry) {
 		Name:        "math_helper",
 		Description: "Performs arithmetic. Give it a natural-language math question.",
 		System:      "You are a meticulous calculator. Use the multiply tool for products.",
-		Model:       anthropic.ModelClaudeSonnet4_5,
+		Model:       anthropic.ModelClaudeSonnet5_5,
 		Tools:       mathTools,
 		Forward:     true,
 	})
@@ -185,7 +185,7 @@ func registerSubAgents(completer agent.Completer, parent *agent.ToolRegistry) {
 		Description: "Remembers and recalls notes across turns. To continue an " +
 			"existing notes session, pass its sessionId.",
 		System:    "You keep concise notes for the user and recall them on request.",
-		Model:     anthropic.ModelClaudeSonnet4_5,
+		Model:     anthropic.ModelClaudeSonnet5_5,
 		MultiTurn: true,
 	})
 
@@ -222,7 +222,7 @@ func registerSubAgents(completer agent.Completer, parent *agent.ToolRegistry) {
 		Name:        "secure_agent",
 		Description: "Performs destructive file operations under human approval.",
 		System:      "You carry out file operations the user requests.",
-		Model:       anthropic.ModelClaudeSonnet4_5,
+		Model:       anthropic.ModelClaudeSonnet5_5,
 		Tools:       secureTools,
 	})
 }

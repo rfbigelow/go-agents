@@ -3,7 +3,7 @@ package agent
 import (
 	"context"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/v2"
 )
 
 // Loop hooks let an application interpose deterministic, non-LLM logic at

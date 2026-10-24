@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/packages/param"
-	"github.com/anthropics/anthropic-sdk-go/packages/ssestream"
+	"github.com/anthropics/anthropic-sdk-go/v2"
+	"github.com/anthropics/anthropic-sdk-go/v2/packages/ssestream"
 )
 
 // Completer abstracts LLM communication for the Agent.
@@ -16,14 +15,13 @@ type Completer interface {
 
 // CompletionRequest contains all parameters for a single LLM completion.
 type CompletionRequest struct {
-	Messages    []anthropic.MessageParam
-	Model       anthropic.Model
-	MaxTokens   int64
-	System      []anthropic.TextBlockParam
-	Tools       []anthropic.ToolUnionParam
-	Temperature *float64
-	Thinking    *ThinkingConfig
-	Effort      *string
+	Messages  []anthropic.MessageParam
+	Model     anthropic.Model
+	MaxTokens int64
+	System    []anthropic.TextBlockParam
+	Tools     []anthropic.ToolUnionParam
+	Thinking  *ThinkingConfig
+	Effort    *string
 }
 
 // EventStream provides typed streaming events and accumulates the
@@ -249,10 +247,6 @@ func (c *AnthropicCompleter) Complete(ctx context.Context, req CompletionRequest
 
 	if len(req.Tools) > 0 {
 		params.Tools = req.Tools
-	}
-
-	if req.Temperature != nil {
-		params.Temperature = param.NewOpt(*req.Temperature)
 	}
 
 	if req.Thinking != nil {

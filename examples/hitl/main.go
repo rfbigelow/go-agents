@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/v2"
 	"github.com/rfbigelow/go-agents/agent"
 )
 
@@ -49,7 +49,7 @@ func main() {
 
 	a := agent.NewAgent(completer, registry, agent.Config{
 		System:    systemPrompt,
-		Model:     anthropic.ModelClaudeSonnet4_5,
+		Model:     anthropic.ModelClaudeSonnet5_5,
 		MaxTokens: 1024,
 		Logger:    logger,
 	})

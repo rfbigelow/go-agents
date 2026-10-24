@@ -1,6 +1,6 @@
 package agent
 
-import "github.com/anthropics/anthropic-sdk-go"
+import "github.com/anthropics/anthropic-sdk-go/v2"
 
 // ConversationState manages the message history for an agent session.
 // It stores user messages, assistant responses, and tool results,
