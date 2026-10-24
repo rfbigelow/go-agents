@@ -129,7 +129,6 @@ totals and the most recent run's usage (S2.20).
 | model | Which model to use |
 | max_tokens | Maximum tokens per LLM response |
 | max_iterations | Maximum agent loop iterations before terminating (loop guard) |
-| temperature | Sampling temperature (optional) |
 | thinking | Extended thinking configuration (optional) — see S2.9 |
 | effort | Output effort level (optional) — see S2.16 |
 
@@ -605,7 +604,6 @@ Queries:
 | system | System prompt (optional) |
 | tools | Tool definitions available for this completion (optional) |
 | tool_choice | How the model should choose tools: auto, any, specific, or none (optional) |
-| temperature | Sampling temperature (optional) |
 | thinking | Extended thinking configuration (optional) — see S2.9 |
 | effort | Output effort level (optional) — see S2.16 |
 

@@ -8,7 +8,7 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/v2"
 	"go.opentelemetry.io/otel"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
@@ -665,10 +665,10 @@ func TestAgent_Thinking_MultiTurnPreservation(t *testing.T) {
 	if len(turn2) != 3 {
 		t.Fatalf("expected 3 messages on turn 2, got %d", len(turn2))
 	}
-	if turn2[1].Role != anthropic.MessageParamRoleAssistant {
-		t.Fatalf("expected turn2[1] to be assistant, got role=%q", turn2[1].Role)
+	if messageRole(turn2[1]) != roleAssistant {
+		t.Fatalf("expected turn2[1] to be assistant, got role=%q", messageRole(turn2[1]))
 	}
-	assistantBlocks := turn2[1].Content
+	assistantBlocks := messageContent(turn2[1])
 	if len(assistantBlocks) < 2 {
 		t.Fatalf("expected at least 2 blocks in assistant message, got %d: %+v", len(assistantBlocks), assistantBlocks)
 	}
@@ -708,10 +708,10 @@ func TestAgent_Thinking_TextOnlyTurnPreservesBlock(t *testing.T) {
 	if len(conv) != 2 {
 		t.Fatalf("expected 2 messages (user + assistant), got %d", len(conv))
 	}
-	if conv[1].Role != anthropic.MessageParamRoleAssistant {
-		t.Fatalf("expected conv[1] to be assistant, got role=%q", conv[1].Role)
+	if messageRole(conv[1]) != roleAssistant {
+		t.Fatalf("expected conv[1] to be assistant, got role=%q", messageRole(conv[1]))
 	}
-	assistantBlocks := conv[1].Content
+	assistantBlocks := messageContent(conv[1])
 	if len(assistantBlocks) != 2 {
 		t.Fatalf("expected 2 blocks (thinking + text), got %d: %+v", len(assistantBlocks), assistantBlocks)
 	}
@@ -1008,7 +1008,7 @@ func TestAgent_PromptCaching_ConversationBreakpoint(t *testing.T) {
 		}
 		req1 := mock.capturedRequests[0]
 		for i, msg := range req1.Messages {
-			for j, block := range msg.Content {
+			for j, block := range messageContent(msg) {
 				if cc := block.GetCacheControl(); cc != nil && cc.Type == "ephemeral" {
 					t.Errorf("Run 1: unexpected conversation breakpoint on msg[%d].Content[%d]", i, j)
 				}
@@ -1025,7 +1025,7 @@ func TestAgent_PromptCaching_ConversationBreakpoint(t *testing.T) {
 			t.Fatalf("expected 3 messages on Run 2, got %d", len(req2.Messages))
 		}
 		secondToLast := req2.Messages[1] // assistant message
-		lastBlock := secondToLast.Content[len(secondToLast.Content)-1]
+		lastBlock := messageContent(secondToLast)[len(messageContent(secondToLast))-1]
 		if cc := lastBlock.GetCacheControl(); cc == nil || cc.Type != "ephemeral" {
 			t.Error("expected conversation breakpoint on second-to-last message")
 		}
@@ -1080,7 +1080,7 @@ func TestAgent_PromptCaching_ConversationBreakpoint(t *testing.T) {
 			t.Fatalf("turn 1: expected 3 messages, got %d", len(req1.Messages))
 		}
 		bp := req1.Messages[1] // assistant message
-		lastBlock := bp.Content[len(bp.Content)-1]
+		lastBlock := messageContent(bp)[len(messageContent(bp))-1]
 		if cc := lastBlock.GetCacheControl(); cc == nil || cc.Type != "ephemeral" {
 			t.Error("turn 1: expected conversation breakpoint on second-to-last message")
 		}
@@ -1102,7 +1102,7 @@ func TestAgent_PromptCaching_ConversationBreakpoint(t *testing.T) {
 		// After two runs, conversation state should have no cache control
 		// markers on any content block.
 		for i, msg := range a.Conversation() {
-			for j, block := range msg.Content {
+			for j, block := range messageContent(msg) {
 				if cc := block.GetCacheControl(); cc != nil && cc.Type == "ephemeral" {
 					t.Errorf("conversation state mutated: cache control on msg[%d].Content[%d]", i, j)
 				}

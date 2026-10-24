@@ -10,7 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/v2"
 )
 
 // sessionIDPrefix is the trailer a multi-turn sub-agent appends to its result
@@ -74,11 +74,10 @@ type SubAgentDefinition struct {
 	// approval callback governs the sub-agent's HITL tools.
 	Approval ApprovalCallback
 
-	// Thinking, Temperature, and Effort mirror the corresponding Config fields
-	// for the sub-agent. nil omits them.
-	Thinking    *ThinkingConfig
-	Temperature *float64
-	Effort      *string
+	// Thinking and Effort mirror the corresponding Config fields for the
+	// sub-agent. nil omits them.
+	Thinking *ThinkingConfig
+	Effort   *string
 }
 
 // ForwardEvents returns an EventHandler that tags each event with the given
@@ -226,7 +225,6 @@ func NewSubAgentTool(completer Completer, def SubAgentDefinition) (Tool, error) 
 		Model:         def.Model,
 		MaxTokens:     maxTokens,
 		MaxIterations: def.MaxIterations,
-		Temperature:   def.Temperature,
 		Thinking:      def.Thinking,
 		Effort:        def.Effort,
 	}

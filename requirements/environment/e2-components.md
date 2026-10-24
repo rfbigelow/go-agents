@@ -9,13 +9,17 @@ Go SDK.
 **Interaction:** The library sends conversation messages (including tool
 results) and receives model completions (including tool-use requests).
 **Owner:** Anthropic. API changes are versioned but could affect the library
-through SDK updates.
+through SDK updates. Messages API version `2026-10-21` no longer accepts
+the sampling parameters `temperature`, `top_p`, and `top_k`.
 
 ## E2.2: Anthropic Go SDK
 
 **Type:** Library dependency
 **Description:** Anthropic's official Go client library for the Messages API.
-Handles authentication, request construction, and response parsing.
+Handles authentication, request construction, and response parsing. The
+library uses major version 2 (module path
+`github.com/anthropics/anthropic-sdk-go/v2`), which targets Messages API
+version `2026-10-21`; major version 1 is no longer released.
 **Interaction:** The library depends on the SDK as its primary external
 dependency. Agent applications interact with Anthropic through the SDK via
 the library's abstractions.

@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/v2"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -336,10 +336,6 @@ func (a *Agent) buildRequestFrom(messages []anthropic.MessageParam) CompletionRe
 		req.Tools = tools
 	}
 
-	if a.config.Temperature != nil {
-		req.Temperature = a.config.Temperature
-	}
-
 	if a.config.Thinking != nil {
 		req.Thinking = a.config.Thinking
 	}
@@ -359,12 +355,12 @@ func (a *Agent) buildRequestFrom(messages []anthropic.MessageParam) CompletionRe
 		if len(req.Messages) >= 2 {
 			idx := len(req.Messages) - 2
 			msg := req.Messages[idx]
-			if n := len(msg.Content); n > 0 {
+			if content := messageContent(msg); len(content) > 0 {
+				n := len(content)
 				newContent := make([]anthropic.ContentBlockParamUnion, n)
-				copy(newContent, msg.Content)
+				copy(newContent, content)
 				setCacheControlOnContentBlock(&newContent[n-1], cc)
-				msg.Content = newContent
-				req.Messages[idx] = msg
+				req.Messages[idx] = withContent(msg, newContent)
 			}
 		}
 	}

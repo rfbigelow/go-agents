@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/v2"
 )
 
 // defaultSummaryMaxTokens caps the hybrid strategy's summary call when
@@ -190,11 +190,11 @@ func (s *HybridSummarizationStrategy) summarize(ctx context.Context, req Compact
 func turnStarts(msgs []anthropic.MessageParam) []int {
 	var starts []int
 	for i, m := range msgs {
-		if m.Role != anthropic.MessageParamRoleUser {
+		if messageRole(m) != roleUser {
 			continue
 		}
 		fresh := true
-		for _, block := range m.Content {
+		for _, block := range messageContent(m) {
 			if block.OfToolResult != nil {
 				fresh = false
 				break
@@ -215,10 +215,10 @@ func renderTranscript(msgs []anthropic.MessageParam) string {
 	var sb strings.Builder
 	for _, m := range msgs {
 		role := "User"
-		if m.Role == anthropic.MessageParamRoleAssistant {
+		if messageRole(m) == roleAssistant {
 			role = "Assistant"
 		}
-		for _, block := range m.Content {
+		for _, block := range messageContent(m) {
 			switch {
 			case block.OfText != nil:
 				fmt.Fprintf(&sb, "%s: %s\n", role, block.OfText.Text)

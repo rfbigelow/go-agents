@@ -8,7 +8,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/v2"
 )
 
 const subTestModel = anthropic.Model("claude-sonnet-4-5")

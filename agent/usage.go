@@ -1,6 +1,6 @@
 package agent
 
-import "github.com/anthropics/anthropic-sdk-go"
+import "github.com/anthropics/anthropic-sdk-go/v2"
 
 // UsageTotals is one component of TokenUsage: token counts summed over
 // one or more API responses, broken down into input, output, and cache

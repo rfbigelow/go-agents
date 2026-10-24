@@ -48,7 +48,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/v2"
 	"github.com/rfbigelow/go-agents/agent"
 )
 
@@ -127,7 +127,7 @@ See [requirements/](requirements/README.md) for the full PEGS requirements.
 
 ## Dependencies
 
-- [Anthropic Go SDK](https://github.com/anthropics/anthropic-sdk-go)
+- [Anthropic Go SDK](https://github.com/anthropics/anthropic-sdk-go/v2)
 - [OpenTelemetry Trace API](https://pkg.go.dev/go.opentelemetry.io/otel/trace)
 - Go standard library (slog, context)
 

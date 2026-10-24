@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/v2"
 )
 
 // marshalMessages renders a history as JSON for whole-history equality
@@ -65,8 +65,8 @@ func TestNewAgentWithHistory_SeedsConversationAndRunExtends(t *testing.T) {
 	if got, want := marshalMessages(t, req[:2]), marshalMessages(t, history); got != want {
 		t.Fatalf("request prefix = %s, want seeded history %s", got, want)
 	}
-	if req[2].Role != anthropic.MessageParamRoleUser {
-		t.Fatalf("expected request to end with the new user message, got role=%q", req[2].Role)
+	if messageRole(req[2]) != roleUser {
+		t.Fatalf("expected request to end with the new user message, got role=%q", messageRole(req[2]))
 	}
 
 	// The run extends the seeded history: user + assistant appended.
@@ -224,7 +224,7 @@ func TestNewAgentWithHistory_RoundTripThinkingSignatures(t *testing.T) {
 	if len(req) != 5 {
 		t.Fatalf("expected 5 messages in resumed request, got %d", len(req))
 	}
-	blocks := req[1].Content
+	blocks := messageContent(req[1])
 	if len(blocks) < 2 || blocks[0].OfThinking == nil {
 		t.Fatalf("expected assistant message to lead with a thinking block, got %+v", blocks)
 	}
@@ -271,7 +271,7 @@ func TestNewAgentWithHistory_RejectsMalformedHistory(t *testing.T) {
 		{
 			name: "non-user/assistant role",
 			history: []anthropic.MessageParam{
-				{Role: "system", Content: []anthropic.ContentBlockParamUnion{anthropic.NewTextBlock("s")}},
+				{OfSystem: &anthropic.SystemMessageParam{Content: []anthropic.TextBlockParam{{Text: "s"}}}},
 				assistantText("a"),
 			},
 			wantRule: 2,

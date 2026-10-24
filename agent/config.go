@@ -3,7 +3,7 @@ package agent
 import (
 	"log/slog"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/v2"
 )
 
 // Config holds the configuration for an Agent.
@@ -20,10 +20,6 @@ type Config struct {
 	// MaxIterations is the maximum number of agent loop iterations
 	// before the Agent terminates the run with an error.
 	MaxIterations int
-
-	// Temperature controls the sampling temperature for LLM responses.
-	// nil uses the model's default.
-	Temperature *float64
 
 	// Thinking configures Anthropic's Extended Thinking feature.
 	// nil omits the parameter from requests (S2.9).

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/v2"
 )
 
 // ---------- PreLLMCall (S6.27) ----------
@@ -364,12 +364,12 @@ func TestPreToolUse_Substitute_BypassesHITL(t *testing.T) {
 		t.Fatalf("expected 4 messages, got %d", len(conv))
 	}
 	toolResultMsg := conv[2]
-	if len(toolResultMsg.Content) != 1 {
-		t.Fatalf("expected 1 tool_result block, got %d", len(toolResultMsg.Content))
+	if len(messageContent(toolResultMsg)) != 1 {
+		t.Fatalf("expected 1 tool_result block, got %d", len(messageContent(toolResultMsg)))
 	}
-	resBlock := toolResultMsg.Content[0].OfToolResult
+	resBlock := messageContent(toolResultMsg)[0].OfToolResult
 	if resBlock == nil {
-		t.Fatalf("expected tool_result block, got %+v", toolResultMsg.Content[0])
+		t.Fatalf("expected tool_result block, got %+v", messageContent(toolResultMsg)[0])
 	}
 	if resBlock.ToolUseID != "t1" {
 		t.Errorf("ToolUseID = %q, want %q (agent must force ID match)", resBlock.ToolUseID, "t1")
@@ -519,7 +519,7 @@ func TestPostToolUse_Continue(t *testing.T) {
 
 	// Conversation tool_result block must carry "raw".
 	conv := a.Conversation()
-	resBlock := conv[2].Content[0].OfToolResult
+	resBlock := messageContent(conv[2])[0].OfToolResult
 	if resBlock == nil || len(resBlock.Content) == 0 || resBlock.Content[0].OfText == nil || resBlock.Content[0].OfText.Text != "raw" {
 		t.Errorf("expected tool_result content %q, got %+v", "raw", resBlock.Content)
 	}
@@ -553,7 +553,7 @@ func TestPostToolUse_Modify(t *testing.T) {
 	}
 
 	conv := a.Conversation()
-	resBlock := conv[2].Content[0].OfToolResult
+	resBlock := messageContent(conv[2])[0].OfToolResult
 	if resBlock == nil || len(resBlock.Content) == 0 || resBlock.Content[0].OfText == nil || resBlock.Content[0].OfText.Text != "redacted" {
 		t.Errorf("expected tool_result content %q (modified), got %+v", "redacted", resBlock.Content)
 	}
@@ -728,7 +728,7 @@ func TestPostToolUse_SynthesizedStickyAcrossModify(t *testing.T) {
 	if len(conv) != 4 {
 		t.Fatalf("expected 4 messages, got %d", len(conv))
 	}
-	resBlocks := conv[2].Content
+	resBlocks := messageContent(conv[2])
 	if len(resBlocks) != 2 {
 		t.Fatalf("expected 2 tool_result blocks, got %d", len(resBlocks))
 	}
